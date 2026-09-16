@@ -1,0 +1,113 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import { formatPrice } from '../../lib/constants';
+
+const status = Astro.url.searchParams.get('status') ?? '';
+
+let query = Astro.locals.supabase
+  .from('bookings')
+  .select(
+    `id, booking_ref, booking_date, guests, total_price, commission_amount, currency, status, created_at,
+     customer_name, customer_email,
+     services(title), businesses(name, slug), payments(status)`
+  )
+  .order('created_at', { ascending: false })
+  .limit(200);
+if (status) query = query.eq('status', status);
+const { data: bookings } = await query;
+
+const STATUSES = ['pending', 'confirmed', 'completed', 'cancelled', 'rejected', 'no_show'];
+const statusCls: Record<string, string> = {
+  pending: 'bg-amber-100 text-amber-800',
+  confirmed: 'bg-emerald-100 text-emerald-800',
+  rejected: 'bg-red-100 text-red-700',
+  cancelled: 'bg-gray-100 text-gray-600',
+  completed: 'bg-navy-100 text-navy-700',
+  no_show: 'bg-gray-100 text-gray-600',
+};
+---
+
+<Layout title="Bookings — Admin">
+  <div class="mx-auto max-w-6xl px-4 sm:px-6 py-12">
+    <a href="/admin" class="text-sm text-navy-600 hover:underline">← Admin</a>
+    <h1 class="font-display text-3xl mt-2 mb-6">All bookings</h1>
+
+    <div class="flex flex-wrap gap-2 mb-6">
+      <a
+        href="/admin/bookings"
+        class={`rounded-full px-4 py-1.5 text-xs font-medium border transition-colors ${!status ? 'bg-navy-900 text-white border-navy-900' : 'border-sand-200 hover:border-navy-200'}`}
+      >
+        All
+      </a>
+      {
+        STATUSES.map((s) => (
+          <a
+            href={`/admin/bookings?status=${s}`}
+            class={`rounded-full px-4 py-1.5 text-xs font-medium border transition-colors ${status === s ? 'bg-navy-900 text-white border-navy-900' : 'border-sand-200 hover:border-navy-200'}`}
+          >
+            {s}
+          </a>
+        ))
+      }
+    </div>
+
+    <div class="rounded-2xl bg-white border border-sand-200 overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="text-left text-xs text-navy-600/70 uppercase tracking-wide border-b border-sand-200">
+            <th class="px-4 py-3">Ref</th>
+            <th class="px-4 py-3">Date</th>
+            <th class="px-4 py-3">Service</th>
+            <th class="px-4 py-3">Business</th>
+            <th class="px-4 py-3">Customer</th>
+            <th class="px-4 py-3 text-right">Total</th>
+            <th class="px-4 py-3 text-right">Fee</th>
+            <th class="px-4 py-3">Payment</th>
+            <th class="px-4 py-3">Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {
+            (bookings ?? []).map((b: any) => (
+              <tr class="border-b border-sand-100 last:border-0">
+                <td class="px-4 py-3 font-mono text-xs">{b.booking_ref}</td>
+                <td class="px-4 py-3 whitespace-nowrap">{b.booking_date}</td>
+                <td class="px-4 py-3">{b.services?.title}</td>
+                <td class="px-4 py-3">
+                  <a href={`/b/${b.businesses?.slug}`} class="hover:underline">
+                    {b.businesses?.name}
+                  </a>
+                </td>
+                <td class="px-4 py-3">
+                  <div>{b.customer_name}</div>
+                  <div class="text-xs text-navy-600/70">{b.customer_email}</div>
+                </td>
+                <td class="px-4 py-3 text-right whitespace-nowrap">{formatPrice(b.total_price, b.currency)}</td>
+                <td class="px-4 py-3 text-right whitespace-nowrap text-navy-600">
+                  {formatPrice(b.commission_amount, b.currency)}
+                </td>
+                <td class="px-4 py-3">
+                  {b.payments?.[0] ? (
+                    <span class={b.payments[0].status === 'paid' ? 'text-emerald-700' : 'text-amber-700'}>
+                      {b.payments[0].status}
+                    </span>
+                  ) : (
+                    <span class="text-navy-600/50">—</span>
+                  )}
+                </td>
+                <td class="px-4 py-3">
+                  <span class={`rounded-full px-2.5 py-0.5 text-xs font-medium ${statusCls[b.status]}`}>
+                    {b.status}
+                  </span>
+                </td>
+              </tr>
+            ))
+          }
+        </tbody>
+      </table>
+      {(!bookings || bookings.length === 0) && (
+        <p class="p-8 text-center text-navy-600 text-sm">No bookings.</p>
+      )}
+    </div>
+  </div>
+</Layout>

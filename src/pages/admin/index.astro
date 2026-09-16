@@ -1,39 +1,60 @@
 ---
 import Layout from '../../layouts/Layout.astro';
+import { formatPrice } from '../../lib/constants';
 
 const supabase = Astro.locals.supabase;
 
-const [pendingBiz, totalBiz, totalBookings] = await Promise.all([
+const [pendingBiz, totalBiz, totalBookings, paidBookings] = await Promise.all([
   supabase.from('businesses').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
   supabase.from('businesses').select('id', { count: 'exact', head: true }),
   supabase.from('bookings').select('id', { count: 'exact', head: true }),
+  supabase
+    .from('bookings')
+    .select('total_price, commission_amount, payments!inner(status)')
+    .eq('payments.status', 'paid')
+    .not('status', 'in', '(cancelled,rejected)'),
 ]);
+
+const paid = paidBookings.data ?? [];
+const grossRevenue = paid.reduce((s, b: any) => s + Number(b.total_price), 0);
+const commissionEarned = paid.reduce((s, b: any) => s + Number(b.commission_amount), 0);
 ---
 
 <Layout title="Admin — One Mykonos">
   <div class="mx-auto max-w-5xl px-4 sm:px-6 py-12">
     <h1 class="font-display text-3xl mb-8">Admin panel</h1>
 
-    <div class="grid sm:grid-cols-3 gap-4 mb-8">
-      <div class="rounded-2xl bg-white border border-sand-200 p-6">
+    <div class="grid sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
+      <a href="/admin/businesses" class="rounded-2xl bg-white border border-sand-200 hover:border-gold-400 transition-colors p-5">
         <div class="text-sm text-navy-600">Pending approvals</div>
-        <div class="font-display text-4xl mt-1">{pendingBiz.count ?? 0}</div>
-      </div>
-      <div class="rounded-2xl bg-white border border-sand-200 p-6">
+        <div class={`font-display text-3xl mt-1 ${(pendingBiz.count ?? 0) > 0 ? 'text-amber-600' : ''}`}>
+          {pendingBiz.count ?? 0}
+        </div>
+      </a>
+      <div class="rounded-2xl bg-white border border-sand-200 p-5">
         <div class="text-sm text-navy-600">Businesses</div>
-        <div class="font-display text-4xl mt-1">{totalBiz.count ?? 0}</div>
+        <div class="font-display text-3xl mt-1">{totalBiz.count ?? 0}</div>
       </div>
-      <div class="rounded-2xl bg-white border border-sand-200 p-6">
-        <div class="text-sm text-navy-600">Total bookings</div>
-        <div class="font-display text-4xl mt-1">{totalBookings.count ?? 0}</div>
+      <div class="rounded-2xl bg-white border border-sand-200 p-5">
+        <div class="text-sm text-navy-600">Bookings</div>
+        <div class="font-display text-3xl mt-1">{totalBookings.count ?? 0}</div>
+      </div>
+      <div class="rounded-2xl bg-white border border-sand-200 p-5">
+        <div class="text-sm text-navy-600">Paid volume</div>
+        <div class="font-display text-3xl mt-1">{formatPrice(grossRevenue)}</div>
+      </div>
+      <div class="rounded-2xl bg-navy-900 text-white p-5">
+        <div class="text-sm text-navy-200">Platform earnings</div>
+        <div class="font-display text-3xl mt-1 text-gold-300">{formatPrice(commissionEarned)}</div>
       </div>
     </div>
 
-    <div class="grid sm:grid-cols-2 gap-4">
+    <div class="grid sm:grid-cols-3 gap-4">
       {
         [
-          ['/admin/businesses', 'Business approvals', 'Review, approve, feature or suspend partners'],
+          ['/admin/businesses', 'Business approvals', 'Approve, feature, verify, set commission'],
           ['/admin/bookings', 'All bookings', 'Platform-wide booking overview'],
+          ['/admin/settings', 'Platform settings', 'Default commission rate'],
         ].map(([href, title, sub]) => (
           <a
             href={href}

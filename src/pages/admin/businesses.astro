@@ -1,0 +1,133 @@
+---
+import Layout from '../../layouts/Layout.astro';
+
+const { data: businesses } = await Astro.locals.supabase
+  .from('businesses')
+  .select(
+    `id, name, slug, status, verified, featured, commission_pct, location_area, phone, email, created_at,
+     categories(name), profiles!businesses_owner_id_fkey(full_name)`
+  )
+  .order('created_at', { ascending: false });
+
+const all = businesses ?? [];
+const pending = all.filter((b) => b.status === 'pending');
+const active = all.filter((b) => b.status === 'approved');
+const other = all.filter((b) => !['pending', 'approved'].includes(b.status));
+
+const statusCls: Record<string, string> = {
+  pending: 'bg-amber-100 text-amber-800',
+  approved: 'bg-emerald-100 text-emerald-800',
+  rejected: 'bg-red-100 text-red-700',
+  suspended: 'bg-gray-200 text-gray-700',
+};
+
+const btn = 'rounded-full px-4 py-1.5 text-xs font-medium transition-colors';
+---
+
+<Layout title="Businesses — Admin">
+  <div class="mx-auto max-w-5xl px-4 sm:px-6 py-12">
+    <a href="/admin" class="text-sm text-navy-600 hover:underline">← Admin</a>
+    <h1 class="font-display text-3xl mt-2 mb-8">Businesses</h1>
+
+    {
+      [
+        ['Pending approval', pending],
+        ['Active', active],
+        ['Rejected / suspended', other],
+      ].map(([title, list]: any) => (
+        <section class="mb-10">
+          <h2 class="font-display text-xl mb-4">
+            {title} <span class="text-navy-600/60 text-base">({list.length})</span>
+          </h2>
+          {list.length === 0 ? (
+            <p class="text-sm text-navy-600">None.</p>
+          ) : (
+            <div class="space-y-3">
+              {list.map((b: any) => (
+                <div class="rounded-2xl bg-white border border-sand-200 p-5">
+                  <div class="flex flex-wrap items-start justify-between gap-4">
+                    <div>
+                      <div class="font-medium flex items-center gap-2">
+                        <a href={`/b/${b.slug}`} class="hover:underline">{b.name}</a>
+                        {b.verified && <span class="text-gold-500 text-sm" title="Verified">✓</span>}
+                        {b.featured && (
+                          <span class="rounded-full bg-gold-500/15 text-gold-600 text-xs px-2 py-0.5">
+                            featured
+                          </span>
+                        )}
+                      </div>
+                      <div class="text-sm text-navy-600 mt-0.5">
+                        {b.categories?.name} · {b.location_area} · owner: {b.profiles?.full_name ?? '—'}
+                      </div>
+                      <div class="text-xs text-navy-600/70 mt-1">
+                        {b.phone} {b.email && `· ${b.email}`} · joined{' '}
+                        {new Date(b.created_at).toLocaleDateString('en-GB')}
+                      </div>
+                    </div>
+                    <span class={`rounded-full px-3 py-1 text-xs font-medium ${statusCls[b.status]}`}>
+                      {b.status}
+                    </span>
+                  </div>
+
+                  <div class="flex flex-wrap items-center gap-2 mt-4 pt-4 border-t border-sand-100">
+                    {b.status !== 'approved' && (
+                      <form method="post" action="/api/admin/business-action">
+                        <input type="hidden" name="business_id" value={b.id} />
+                        <input type="hidden" name="action" value="approve" />
+                        <button class={`${btn} bg-emerald-600 hover:bg-emerald-500 text-white`}>Approve</button>
+                      </form>
+                    )}
+                    {b.status === 'pending' && (
+                      <form method="post" action="/api/admin/business-action">
+                        <input type="hidden" name="business_id" value={b.id} />
+                        <input type="hidden" name="action" value="reject" />
+                        <button class={`${btn} border border-red-200 text-red-600 hover:bg-red-50`}>Reject</button>
+                      </form>
+                    )}
+                    {b.status === 'approved' && (
+                      <form method="post" action="/api/admin/business-action">
+                        <input type="hidden" name="business_id" value={b.id} />
+                        <input type="hidden" name="action" value="suspend" />
+                        <button class={`${btn} border border-red-200 text-red-600 hover:bg-red-50`}>Suspend</button>
+                      </form>
+                    )}
+                    <form method="post" action="/api/admin/business-action">
+                      <input type="hidden" name="business_id" value={b.id} />
+                      <input type="hidden" name="action" value={b.verified ? 'unverify' : 'verify'} />
+                      <button class={`${btn} border border-sand-200 hover:border-gold-400`}>
+                        {b.verified ? 'Remove ✓' : 'Verify ✓'}
+                      </button>
+                    </form>
+                    <form method="post" action="/api/admin/business-action">
+                      <input type="hidden" name="business_id" value={b.id} />
+                      <input type="hidden" name="action" value={b.featured ? 'unfeature' : 'feature'} />
+                      <button class={`${btn} border border-sand-200 hover:border-gold-400`}>
+                        {b.featured ? 'Unfeature' : 'Feature ★'}
+                      </button>
+                    </form>
+                    <form method="post" action="/api/admin/business-action" class="flex items-center gap-1.5 ml-auto">
+                      <input type="hidden" name="business_id" value={b.id} />
+                      <input type="hidden" name="action" value="set_commission" />
+                      <label class="text-xs text-navy-600">Fee %:</label>
+                      <input
+                        name="commission_pct"
+                        type="number"
+                        min="0"
+                        max="50"
+                        step="0.5"
+                        value={b.commission_pct ?? ''}
+                        placeholder="default"
+                        class="w-20 rounded-lg border border-sand-200 px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-gold-400"
+                      />
+                      <button class={`${btn} bg-navy-900 hover:bg-navy-700 text-white`}>Set</button>
+                    </form>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+      ))
+    }
+  </div>
+</Layout>
