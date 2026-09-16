@@ -1,0 +1,133 @@
+---
+import Layout from '../layouts/Layout.astro';
+
+const { data: categories } = await Astro.locals.supabase
+  .from('categories')
+  .select('slug, name, icon')
+  .eq('active', true)
+  .order('sort_order');
+
+const { data: featured } = await Astro.locals.supabase
+  .from('businesses')
+  .select('slug, name, description, cover_url, location_area, categories(name)')
+  .eq('status', 'approved')
+  .eq('featured', true)
+  .limit(6);
+
+const categoryEmoji: Record<string, string> = {
+  transport: '🚗',
+  accommodation: '🏛️',
+  concierge: '🛎️',
+  dining: '🍽️',
+  nightlife: '🎧',
+  experiences: '⛵',
+  wellness: '💆',
+  shopping: '🛍️',
+  'local-services': '🤝',
+  events: '🎉',
+};
+---
+
+<Layout>
+  <!-- Hero -->
+  <section class="relative bg-navy-900 text-white overflow-hidden">
+    <div
+      class="absolute inset-0 opacity-30"
+      style="background: radial-gradient(ellipse at 70% 20%, #1e3a5f 0%, transparent 60%), radial-gradient(ellipse at 20% 80%, #14294a 0%, transparent 50%);"
+    >
+    </div>
+    <div class="relative mx-auto max-w-7xl px-4 sm:px-6 py-24 sm:py-32 text-center">
+      <p class="text-gold-400 tracking-[0.3em] uppercase text-xs sm:text-sm mb-6">
+        The super app of Mykonos
+      </p>
+      <h1 class="font-display text-4xl sm:text-6xl font-semibold leading-tight mb-6">
+        Everything in Mykonos.<br />
+        <span class="text-gold-300 italic font-normal">One platform.</span>
+      </h1>
+      <p class="text-navy-100 max-w-2xl mx-auto mb-10 text-base sm:text-lg">
+        Villas, restaurants, beach clubs, yachts, transfers and experiences — discover and book the
+        best of the island in one place.
+      </p>
+      <form action="/search" method="get" class="max-w-xl mx-auto flex rounded-full bg-white p-1.5 shadow-xl">
+        <input
+          type="search"
+          name="q"
+          placeholder="What are you looking for? e.g. sunset cruise, villa…"
+          class="flex-1 rounded-full px-5 text-navy-900 placeholder:text-navy-600/50 focus:outline-none text-sm sm:text-base"
+        />
+        <button
+          type="submit"
+          class="rounded-full bg-navy-900 hover:bg-navy-700 text-white px-6 py-2.5 text-sm font-medium transition-colors"
+        >
+          Search
+        </button>
+      </form>
+    </div>
+  </section>
+
+  <!-- Categories -->
+  <section id="categories" class="mx-auto max-w-7xl px-4 sm:px-6 py-16 sm:py-20">
+    <h2 class="font-display text-3xl sm:text-4xl text-center mb-2">Explore the island</h2>
+    <p class="text-center text-navy-600 mb-10">Ten worlds of Mykonos, one booking away.</p>
+    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+      {
+        (categories ?? []).map((c) => (
+          <a
+            href={`/c/${c.slug}`}
+            class="group rounded-2xl bg-white border border-sand-200 hover:border-gold-400 hover:shadow-lg transition-all p-6 text-center"
+          >
+            <div class="text-3xl mb-3">{categoryEmoji[c.slug] ?? '✨'}</div>
+            <div class="font-medium text-sm text-navy-800 group-hover:text-navy-950">{c.name}</div>
+          </a>
+        ))
+      }
+    </div>
+  </section>
+
+  <!-- Featured -->
+  {
+    featured && featured.length > 0 && (
+      <section class="bg-sand-100 border-y border-sand-200">
+        <div class="mx-auto max-w-7xl px-4 sm:px-6 py-16">
+          <h2 class="font-display text-3xl text-center mb-10">Featured on One Mykonos</h2>
+          <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {featured.map((b) => (
+              <a
+                href={`/b/${b.slug}`}
+                class="group rounded-2xl overflow-hidden bg-white border border-sand-200 hover:shadow-xl transition-shadow"
+              >
+                <div class="aspect-[3/2] bg-navy-100 overflow-hidden">
+                  {b.cover_url && (
+                    <img
+                      src={b.cover_url}
+                      alt={b.name}
+                      class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                    />
+                  )}
+                </div>
+                <div class="p-5">
+                  <div class="font-display text-lg">{b.name}</div>
+                  <div class="text-sm text-navy-600 mt-1">{b.location_area}</div>
+                </div>
+              </a>
+            ))}
+          </div>
+        </div>
+      </section>
+    )
+  }
+
+  <!-- Partner CTA -->
+  <section class="mx-auto max-w-7xl px-4 sm:px-6 py-16 sm:py-20 text-center">
+    <h2 class="font-display text-3xl mb-4">Run a business in Mykonos?</h2>
+    <p class="text-navy-600 max-w-xl mx-auto mb-8">
+      Join the platform, manage your calendar and bookings, and reach thousands of visitors.
+    </p>
+    <a
+      href="/partners"
+      class="inline-block rounded-full bg-navy-900 hover:bg-navy-700 text-white px-8 py-3 font-medium transition-colors"
+    >
+      Become a partner
+    </a>
+  </section>
+</Layout>

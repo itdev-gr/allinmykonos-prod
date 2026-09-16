@@ -1,0 +1,100 @@
+---
+import Layout from '../../layouts/Layout.astro';
+
+const userId = Astro.locals.user!.id;
+
+const { data: business } = await Astro.locals.supabase
+  .from('businesses')
+  .select('id, name, status')
+  .eq('owner_id', userId)
+  .maybeSingle();
+
+let todayCount = 0;
+let pendingCount = 0;
+if (business) {
+  const today = new Date().toISOString().slice(0, 10);
+  const [todayRes, pendingRes] = await Promise.all([
+    Astro.locals.supabase
+      .from('bookings')
+      .select('id', { count: 'exact', head: true })
+      .eq('business_id', business.id)
+      .eq('booking_date', today)
+      .in('status', ['pending', 'confirmed']),
+    Astro.locals.supabase
+      .from('bookings')
+      .select('id', { count: 'exact', head: true })
+      .eq('business_id', business.id)
+      .eq('status', 'pending'),
+  ]);
+  todayCount = todayRes.count ?? 0;
+  pendingCount = pendingRes.count ?? 0;
+}
+---
+
+<Layout title="Business dashboard — One Mykonos">
+  <div class="mx-auto max-w-5xl px-4 sm:px-6 py-12">
+    <h1 class="font-display text-3xl mb-8">Business dashboard</h1>
+
+    {
+      !business ? (
+        <div class="rounded-2xl bg-white border border-sand-200 p-10 text-center">
+          <h2 class="font-display text-xl mb-2">Set up your business</h2>
+          <p class="text-navy-600 text-sm mb-6">
+            Create your business profile to start receiving bookings. Our team will review and
+            approve it shortly after.
+          </p>
+          <a
+            href="/dashboard/setup"
+            class="inline-block rounded-full bg-gold-500 hover:bg-gold-400 text-navy-950 px-6 py-2.5 text-sm font-medium transition-colors"
+          >
+            Create business profile
+          </a>
+        </div>
+      ) : (
+        <>
+          {business.status === 'pending' && (
+            <div class="mb-6 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-sm px-4 py-3">
+              <strong>{business.name}</strong> is under review. You can prepare your listings and
+              calendar — you'll go live once approved.
+            </div>
+          )}
+          {business.status === 'rejected' && (
+            <div class="mb-6 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3">
+              Your business application was not approved. Contact the One Mykonos team for details.
+            </div>
+          )}
+          <div class="grid sm:grid-cols-3 gap-4 mb-8">
+            <div class="rounded-2xl bg-white border border-sand-200 p-6">
+              <div class="text-sm text-navy-600">Today's bookings</div>
+              <div class="font-display text-4xl mt-1">{todayCount}</div>
+            </div>
+            <div class="rounded-2xl bg-white border border-sand-200 p-6">
+              <div class="text-sm text-navy-600">Pending requests</div>
+              <div class="font-display text-4xl mt-1">{pendingCount}</div>
+            </div>
+            <div class="rounded-2xl bg-white border border-sand-200 p-6">
+              <div class="text-sm text-navy-600">Status</div>
+              <div class="font-display text-2xl mt-2 capitalize">{business.status}</div>
+            </div>
+          </div>
+          <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {[
+              ['/dashboard/bookings', 'Bookings', 'Accept or reject requests'],
+              ['/dashboard/calendar', 'Calendar', 'Manage availability'],
+              ['/dashboard/listings', 'Listings', 'Services, menus & pricing'],
+              ['/dashboard/settings', 'Settings', 'Profile, photos, location'],
+            ].map(([href, title, sub]) => (
+              <a
+                href={href}
+                class="rounded-2xl bg-white border border-sand-200 hover:border-gold-400 hover:shadow-md transition-all p-6"
+              >
+                <div class="font-medium">{title}</div>
+                <div class="text-sm text-navy-600 mt-1">{sub}</div>
+              </a>
+            ))}
+          </div>
+        </>
+      )
+    }
+  </div>
+</Layout>

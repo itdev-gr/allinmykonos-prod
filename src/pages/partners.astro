@@ -1,0 +1,81 @@
+---
+import Layout from '../layouts/Layout.astro';
+
+const error = Astro.url.searchParams.get('error');
+---
+
+<Layout title="Become a partner — One Mykonos">
+  <section class="bg-navy-900 text-white">
+    <div class="mx-auto max-w-7xl px-4 sm:px-6 py-16 sm:py-20 text-center">
+      <p class="text-gold-400 tracking-[0.3em] uppercase text-xs mb-4">For businesses</p>
+      <h1 class="font-display text-4xl sm:text-5xl mb-4">Grow with One Mykonos</h1>
+      <p class="text-navy-100 max-w-2xl mx-auto">
+        Your own dashboard: calendar & availability, listings, bookings, payments and analytics —
+        and a storefront in front of every visitor on the island.
+      </p>
+    </div>
+  </section>
+
+  <div class="mx-auto max-w-5xl px-4 sm:px-6 py-14 grid md:grid-cols-2 gap-10 items-start">
+    <div class="space-y-5">
+      {
+        [
+          ['📅', 'Calendar & availability', 'Real-time availability, blackout dates and time slots.'],
+          ['🗂️', 'Your listings', 'Menus, rooms, vehicles or experiences — with photos and seasonal pricing.'],
+          ['🔔', 'Booking management', 'Accept or reject requests, see customer details, add notes.'],
+          ['💳', 'Payments handled', 'Customers pay online; you get transparent payouts and commission tracking.'],
+        ].map(([icon, title, body]) => (
+          <div class="flex gap-4 items-start">
+            <div class="text-2xl">{icon}</div>
+            <div>
+              <div class="font-medium">{title}</div>
+              <p class="text-sm text-navy-600">{body}</p>
+            </div>
+          </div>
+        ))
+      }
+      <p class="text-sm text-navy-600 border-t border-sand-200 pt-5">
+        After sign-up, your business goes through a quick review by our team before it appears on the
+        platform.
+      </p>
+    </div>
+
+    <div>
+      {
+        error && (
+          <div class="mb-6 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3">
+            {error}
+          </div>
+        )
+      }
+      <form method="post" action="/api/auth/register" class="space-y-4 bg-white rounded-2xl border border-sand-200 p-6 sm:p-8 shadow-sm">
+        <h2 class="font-display text-xl mb-2">Create your partner account</h2>
+        <input type="hidden" name="role" value="business" />
+        <div>
+          <label for="full_name" class="block text-sm font-medium mb-1.5">Your name</label>
+          <input id="full_name" name="full_name" type="text" required
+            class="w-full rounded-xl border border-sand-200 px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-gold-400" />
+        </div>
+        <div>
+          <label for="email" class="block text-sm font-medium mb-1.5">Business email</label>
+          <input id="email" name="email" type="email" required
+            class="w-full rounded-xl border border-sand-200 px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-gold-400" />
+        </div>
+        <div>
+          <label for="phone" class="block text-sm font-medium mb-1.5">Phone</label>
+          <input id="phone" name="phone" type="tel" required
+            class="w-full rounded-xl border border-sand-200 px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-gold-400" />
+        </div>
+        <div>
+          <label for="password" class="block text-sm font-medium mb-1.5">Password</label>
+          <input id="password" name="password" type="password" required minlength="8"
+            class="w-full rounded-xl border border-sand-200 px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-gold-400" />
+        </div>
+        <button type="submit"
+          class="w-full rounded-xl bg-gold-500 hover:bg-gold-400 text-navy-950 py-3 font-medium transition-colors">
+          Join as partner
+        </button>
+      </form>
+    </div>
+  </div>
+</Layout>

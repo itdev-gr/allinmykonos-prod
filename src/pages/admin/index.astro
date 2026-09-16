@@ -1,0 +1,49 @@
+---
+import Layout from '../../layouts/Layout.astro';
+
+const supabase = Astro.locals.supabase;
+
+const [pendingBiz, totalBiz, totalBookings] = await Promise.all([
+  supabase.from('businesses').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
+  supabase.from('businesses').select('id', { count: 'exact', head: true }),
+  supabase.from('bookings').select('id', { count: 'exact', head: true }),
+]);
+---
+
+<Layout title="Admin — One Mykonos">
+  <div class="mx-auto max-w-5xl px-4 sm:px-6 py-12">
+    <h1 class="font-display text-3xl mb-8">Admin panel</h1>
+
+    <div class="grid sm:grid-cols-3 gap-4 mb-8">
+      <div class="rounded-2xl bg-white border border-sand-200 p-6">
+        <div class="text-sm text-navy-600">Pending approvals</div>
+        <div class="font-display text-4xl mt-1">{pendingBiz.count ?? 0}</div>
+      </div>
+      <div class="rounded-2xl bg-white border border-sand-200 p-6">
+        <div class="text-sm text-navy-600">Businesses</div>
+        <div class="font-display text-4xl mt-1">{totalBiz.count ?? 0}</div>
+      </div>
+      <div class="rounded-2xl bg-white border border-sand-200 p-6">
+        <div class="text-sm text-navy-600">Total bookings</div>
+        <div class="font-display text-4xl mt-1">{totalBookings.count ?? 0}</div>
+      </div>
+    </div>
+
+    <div class="grid sm:grid-cols-2 gap-4">
+      {
+        [
+          ['/admin/businesses', 'Business approvals', 'Review, approve, feature or suspend partners'],
+          ['/admin/bookings', 'All bookings', 'Platform-wide booking overview'],
+        ].map(([href, title, sub]) => (
+          <a
+            href={href}
+            class="rounded-2xl bg-white border border-sand-200 hover:border-gold-400 hover:shadow-md transition-all p-6"
+          >
+            <div class="font-medium">{title}</div>
+            <div class="text-sm text-navy-600 mt-1">{sub}</div>
+          </a>
+        ))
+      }
+    </div>
+  </div>
+</Layout>
