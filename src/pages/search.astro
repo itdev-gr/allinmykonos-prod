@@ -1,0 +1,95 @@
+---
+import Layout from '../layouts/Layout.astro';
+import BusinessCard from '../components/BusinessCard.astro';
+import { MYKONOS_AREAS } from '../lib/constants';
+
+const supabase = Astro.locals.supabase;
+
+const q = (Astro.url.searchParams.get('q') ?? '').trim();
+const categorySlug = Astro.url.searchParams.get('category') ?? '';
+const area = Astro.url.searchParams.get('area') ?? '';
+
+const { data: categories } = await supabase
+  .from('categories')
+  .select('slug, name')
+  .eq('active', true)
+  .order('sort_order');
+
+let query = supabase
+  .from('businesses')
+  .select(
+    'slug, name, description, cover_url, location_area, verified, categories!inner(slug, name), reviews(rating)'
+  )
+  .eq('status', 'approved')
+  .order('featured', { ascending: false })
+  .order('created_at', { ascending: false })
+  .limit(48);
+
+if (q) query = query.or(`name.ilike.%${q}%,description.ilike.%${q}%`);
+if (categorySlug) query = query.eq('categories.slug', categorySlug);
+if (area) query = query.eq('location_area', area);
+
+const { data: results } = await query;
+---
+
+<Layout title={q ? `"${q}" — Search — One Mykonos` : 'Explore — One Mykonos'}>
+  <section class="bg-navy-900 text-white">
+    <div class="mx-auto max-w-7xl px-4 sm:px-6 py-10">
+      <h1 class="font-display text-3xl sm:text-4xl mb-6">Explore Mykonos</h1>
+      <form method="get" class="grid sm:grid-cols-[1fr_auto_auto_auto] gap-3">
+        <input
+          type="search"
+          name="q"
+          value={q}
+          placeholder="Search villas, restaurants, cruises…"
+          class="rounded-full bg-white text-navy-900 px-5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-gold-400 placeholder:text-navy-600/50"
+        />
+        <select
+          name="category"
+          class="rounded-full bg-white text-navy-900 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-gold-400"
+        >
+          <option value="">All categories</option>
+          {(categories ?? []).map((c) => (
+            <option value={c.slug} selected={c.slug === categorySlug}>{c.name}</option>
+          ))}
+        </select>
+        <select
+          name="area"
+          class="rounded-full bg-white text-navy-900 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-gold-400"
+        >
+          <option value="">All areas</option>
+          {MYKONOS_AREAS.map((a) => <option value={a} selected={a === area}>{a}</option>)}
+        </select>
+        <button
+          type="submit"
+          class="rounded-full bg-gold-500 hover:bg-gold-400 text-navy-950 px-6 py-2.5 text-sm font-medium transition-colors"
+        >
+          Search
+        </button>
+      </form>
+    </div>
+  </section>
+
+  <div class="mx-auto max-w-7xl px-4 sm:px-6 py-10">
+    {
+      !results || results.length === 0 ? (
+        <div class="rounded-2xl bg-white border border-sand-200 p-12 text-center text-navy-600">
+          No results{q ? ` for “${q}”` : ''}. Try a different search or browse the
+          <a href="/#categories" class="underline underline-offset-2 text-navy-900">categories</a>.
+        </div>
+      ) : (
+        <>
+          <p class="text-sm text-navy-600 mb-6">
+            {results.length} {results.length === 1 ? 'result' : 'results'}
+            {q ? ` for “${q}”` : ''}
+          </p>
+          <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {results.map((b: any) => (
+              <BusinessCard business={b} />
+            ))}
+          </div>
+        </>
+      )
+    }
+  </div>
+</Layout>

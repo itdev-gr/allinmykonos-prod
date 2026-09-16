@@ -1,0 +1,257 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import { PRICING_LABEL, formatPrice } from '../../lib/constants';
+
+const { slug } = Astro.params;
+const supabase = Astro.locals.supabase;
+
+const { data: business } = await supabase
+  .from('businesses')
+  .select(
+    `id, name, slug, description, location_area, address, lat, lng, phone, email, website, instagram,
+     logo_url, cover_url, gallery, verified, status, owner_id,
+     categories(slug, name),
+     services(id, title, description, pricing_type, base_price, currency, duration_minutes, min_guests, max_guests, images, booking_mode, active, sort_order),
+     reviews(id, rating, comment, business_reply, created_at, is_published)`
+  )
+  .eq('slug', slug!)
+  .maybeSingle();
+
+if (!business) return Astro.redirect('/404');
+
+// RLS already hides non-approved businesses from the public; this guards the
+// owner-preview case so they see a banner instead of a broken public page.
+const isOwner = Astro.locals.user?.id === business.owner_id;
+const isAdmin = Astro.locals.profile?.role === 'admin';
+
+const services = (business.services ?? [])
+  .filter((s: any) => s.active)
+  .sort((a: any, b: any) => a.sort_order - b.sort_order);
+
+const reviews = (business.reviews ?? []).filter((r: any) => r.is_published);
+const avgRating = reviews.length
+  ? reviews.reduce((s: number, r: any) => s + r.rating, 0) / reviews.length
+  : null;
+
+const gallery: string[] = Array.isArray(business.gallery) ? business.gallery : [];
+const mapSrc =
+  business.lat && business.lng
+    ? `https://www.google.com/maps?q=${business.lat},${business.lng}&z=14&output=embed`
+    : null;
+---
+
+<Layout title={`${business.name} — One Mykonos`} description={business.description ?? undefined}>
+  {
+    (isOwner || isAdmin) && business.status !== 'approved' && (
+      <div class="bg-amber-50 border-b border-amber-200 text-amber-800 text-sm text-center px-4 py-2">
+        Preview — this business is <strong>{business.status}</strong> and not visible to the public
+        yet.
+      </div>
+    )
+  }
+
+  <!-- Hero -->
+  <section class="relative bg-navy-900 text-white">
+    {
+      business.cover_url && (
+        <div class="absolute inset-0">
+          <img src={business.cover_url} alt="" class="w-full h-full object-cover opacity-40" />
+          <div class="absolute inset-0 bg-gradient-to-t from-navy-950 via-navy-950/40 to-transparent" />
+        </div>
+      )
+    }
+    <div class="relative mx-auto max-w-7xl px-4 sm:px-6 pt-20 pb-10 sm:pt-28 sm:pb-14">
+      <a href={`/c/${(business.categories as any)?.slug}`} class="text-navy-200 text-sm hover:text-white transition-colors">
+        ← {(business.categories as any)?.name}
+      </a>
+      <div class="flex items-end justify-between gap-6 mt-3 flex-wrap">
+        <div>
+          <h1 class="font-display text-4xl sm:text-5xl flex items-center gap-3">
+            {business.name}
+            {business.verified && <span class="text-gold-400 text-2xl" title="Verified partner">✓</span>}
+          </h1>
+          <p class="text-navy-100 mt-2">
+            {business.location_area}
+            {avgRating && (
+              <span class="ml-3 text-gold-300">★ {avgRating.toFixed(1)}</span>
+            )}
+            {reviews.length > 0 && <span class="text-navy-200"> ({reviews.length} reviews)</span>}
+          </p>
+        </div>
+        {
+          services.length > 0 && (
+            <a
+              href="#services"
+              class="rounded-full bg-gold-500 hover:bg-gold-400 text-navy-950 px-7 py-3 font-medium transition-colors"
+            >
+              Book now
+            </a>
+          )
+        }
+      </div>
+    </div>
+  </section>
+
+  <div class="mx-auto max-w-7xl px-4 sm:px-6 py-10 grid lg:grid-cols-[1fr_340px] gap-10">
+    <div class="min-w-0">
+      {
+        business.description && (
+          <section class="mb-10">
+            <h2 class="font-display text-2xl mb-3">About</h2>
+            <p class="text-navy-700 leading-relaxed whitespace-pre-line">{business.description}</p>
+          </section>
+        )
+      }
+
+      {
+        gallery.length > 0 && (
+          <section class="mb-10">
+            <h2 class="font-display text-2xl mb-4">Gallery</h2>
+            <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              {gallery.map((url) => (
+                <img
+                  src={url}
+                  alt={business.name}
+                  loading="lazy"
+                  class="rounded-xl aspect-[4/3] object-cover w-full"
+                />
+              ))}
+            </div>
+          </section>
+        )
+      }
+
+      <!-- Services -->
+      <section id="services" class="mb-10 scroll-mt-6">
+        <h2 class="font-display text-2xl mb-4">Services & experiences</h2>
+        {
+          services.length === 0 ? (
+            <div class="rounded-2xl bg-white border border-sand-200 p-8 text-center text-navy-600">
+              No bookable services listed yet — contact the business directly.
+            </div>
+          ) : (
+            <div class="space-y-4">
+              {services.map((s: any) => (
+                <div class="rounded-2xl bg-white border border-sand-200 p-5 sm:p-6 flex flex-col sm:flex-row gap-5">
+                  {Array.isArray(s.images) && s.images[0] && (
+                    <img
+                      src={s.images[0]}
+                      alt={s.title}
+                      loading="lazy"
+                      class="rounded-xl w-full sm:w-44 aspect-[4/3] object-cover shrink-0"
+                    />
+                  )}
+                  <div class="flex-1 min-w-0">
+                    <div class="flex items-start justify-between gap-4">
+                      <h3 class="font-medium text-lg">{s.title}</h3>
+                      <div class="text-right whitespace-nowrap">
+                        <div class="font-display text-xl">
+                          {formatPrice(s.base_price, s.currency)}
+                          <span class="text-sm text-navy-600 font-sans">
+                            {PRICING_LABEL[s.pricing_type]}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    {s.description && (
+                      <p class="text-sm text-navy-600 mt-1.5 line-clamp-3">{s.description}</p>
+                    )}
+                    <div class="flex items-center justify-between mt-4 gap-4 flex-wrap">
+                      <div class="text-xs text-navy-600/80 flex gap-3">
+                        {s.duration_minutes && <span>⏱ {Math.round(s.duration_minutes / 60)}h</span>}
+                        {s.max_guests && <span>👥 up to {s.max_guests}</span>}
+                        <span>
+                          {s.booking_mode === 'instant' ? '⚡ Instant booking' : '✉️ Request to book'}
+                        </span>
+                      </div>
+                      <a
+                        href={`/book/${s.id}`}
+                        class="rounded-full bg-navy-900 hover:bg-navy-700 text-white px-6 py-2 text-sm font-medium transition-colors"
+                      >
+                        Book
+                      </a>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )
+        }
+      </section>
+
+      <!-- Reviews -->
+      <section class="mb-10">
+        <h2 class="font-display text-2xl mb-4">Reviews</h2>
+        {
+          reviews.length === 0 ? (
+            <p class="text-navy-600 text-sm">No reviews yet.</p>
+          ) : (
+            <div class="space-y-4">
+              {reviews.map((r: any) => (
+                <div class="rounded-2xl bg-white border border-sand-200 p-5">
+                  <div class="text-gold-500">{'★'.repeat(r.rating)}{'☆'.repeat(5 - r.rating)}</div>
+                  {r.comment && <p class="text-sm text-navy-700 mt-2">{r.comment}</p>}
+                  {r.business_reply && (
+                    <div class="mt-3 pl-4 border-l-2 border-sand-200 text-sm text-navy-600">
+                      <span class="font-medium">Reply from {business.name}:</span> {r.business_reply}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )
+        }
+      </section>
+    </div>
+
+    <!-- Sidebar -->
+    <aside class="space-y-5 lg:sticky lg:top-6 self-start">
+      <div class="rounded-2xl bg-white border border-sand-200 p-6">
+        <h3 class="font-medium mb-4">Contact & location</h3>
+        <dl class="text-sm space-y-2.5 text-navy-700">
+          {business.address && <div>📍 {business.address}</div>}
+          {business.phone && (
+            <div>
+              📞 <a href={`tel:${business.phone}`} class="hover:underline">{business.phone}</a>
+            </div>
+          )}
+          {business.website && (
+            <div>
+              🌐{' '}
+              <a href={business.website} rel="noopener" target="_blank" class="hover:underline">
+                Website
+              </a>
+            </div>
+          )}
+          {business.instagram && (
+            <div>
+              📷{' '}
+              <a
+                href={`https://instagram.com/${business.instagram.replace('@', '')}`}
+                rel="noopener"
+                target="_blank"
+                class="hover:underline"
+              >
+                {business.instagram}
+              </a>
+            </div>
+          )}
+        </dl>
+      </div>
+      {
+        mapSrc && (
+          <div class="rounded-2xl overflow-hidden border border-sand-200 bg-white">
+            <iframe
+              src={mapSrc}
+              class="w-full aspect-square"
+              style="border:0"
+              loading="lazy"
+              referrerpolicy="no-referrer-when-downgrade"
+              title={`Map — ${business.name}`}
+            />
+          </div>
+        )
+      }
+    </aside>
+  </div>
+</Layout>

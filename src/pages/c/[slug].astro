@@ -1,0 +1,71 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import BusinessCard from '../../components/BusinessCard.astro';
+import { CATEGORY_EMOJI, MYKONOS_AREAS } from '../../lib/constants';
+
+const { slug } = Astro.params;
+const supabase = Astro.locals.supabase;
+
+const { data: category } = await supabase
+  .from('categories')
+  .select('id, slug, name, name_el')
+  .eq('slug', slug!)
+  .eq('active', true)
+  .maybeSingle();
+
+if (!category) return Astro.redirect('/404');
+
+const area = Astro.url.searchParams.get('area') ?? '';
+
+let query = supabase
+  .from('businesses')
+  .select('slug, name, description, cover_url, location_area, verified, categories(name), reviews(rating)')
+  .eq('status', 'approved')
+  .eq('category_id', category.id)
+  .order('featured', { ascending: false })
+  .order('created_at', { ascending: false });
+
+if (area) query = query.eq('location_area', area);
+
+const { data: businesses } = await query;
+---
+
+<Layout title={`${category.name} in Mykonos — One Mykonos`}>
+  <section class="bg-navy-900 text-white">
+    <div class="mx-auto max-w-7xl px-4 sm:px-6 py-12 sm:py-16">
+      <a href="/#categories" class="text-navy-200 text-sm hover:text-white transition-colors">← All categories</a>
+      <h1 class="font-display text-4xl sm:text-5xl mt-3">
+        <span class="mr-2">{CATEGORY_EMOJI[category.slug] ?? '✨'}</span>{category.name}
+      </h1>
+    </div>
+  </section>
+
+  <div class="mx-auto max-w-7xl px-4 sm:px-6 py-10">
+    <form method="get" class="mb-8 flex flex-wrap items-center gap-3">
+      <label for="area" class="text-sm text-navy-600">Area:</label>
+      <select
+        id="area"
+        name="area"
+        onchange="this.form.submit()"
+        class="rounded-full border border-sand-200 bg-white px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gold-400"
+      >
+        <option value="">All of Mykonos</option>
+        {MYKONOS_AREAS.map((a) => <option value={a} selected={a === area}>{a}</option>)}
+      </select>
+    </form>
+
+    {
+      !businesses || businesses.length === 0 ? (
+        <div class="rounded-2xl bg-white border border-sand-200 p-12 text-center text-navy-600">
+          No {category.name.toLowerCase()} listings {area ? `in ${area}` : ''} yet — check back soon.
+        </div>
+      ) : (
+        <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          {businesses.map((b: any) => (
+            <BusinessCard business={b} />
+          ))}
+        </div>
+      )
+    }
+  </div>
+</Layout>
