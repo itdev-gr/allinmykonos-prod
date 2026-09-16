@@ -67,7 +67,9 @@ export const POST: APIRoute = async ({ request, locals, redirect }) => {
   const unitPrice = unitPriceFor(service, (service.service_pricing_seasons as any[]) ?? [], date);
   const total = computeTotal(service, unitPrice, guests);
 
-  let commissionPct = Number(business.commission_pct);
+  // Note: business.commission_pct may be null (= use platform default), and
+  // Number(null) is 0, so the null check must come first.
+  let commissionPct = business.commission_pct != null ? Number(business.commission_pct) : NaN;
   if (!Number.isFinite(commissionPct)) {
     const { data: setting } = await admin
       .from('platform_settings')

@@ -1,0 +1,193 @@
+---
+import Layout from '../../../layouts/Layout.astro';
+import { getOwnerBusiness } from '../../../lib/dashboard';
+
+const business = await getOwnerBusiness(Astro.locals);
+if (!business) return Astro.redirect('/dashboard');
+
+const { id } = Astro.params;
+const isNew = id === 'new';
+
+let service: any = null;
+let seasons: any[] = [];
+if (!isNew) {
+  const { data } = await Astro.locals.supabase
+    .from('services')
+    .select('*, service_pricing_seasons(id, name, start_date, end_date, price)')
+    .eq('id', id!)
+    .eq('business_id', business.id)
+    .maybeSingle();
+  if (!data) return Astro.redirect('/dashboard/listings');
+  service = data;
+  seasons = (data.service_pricing_seasons ?? []).sort((a: any, b: any) =>
+    a.start_date.localeCompare(b.start_date)
+  );
+}
+
+const images: string[] = service && Array.isArray(service.images) ? service.images : [];
+const error = Astro.url.searchParams.get('error');
+const inputCls =
+  'w-full rounded-xl border border-sand-200 px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-gold-400';
+---
+
+<Layout title={`${isNew ? 'New service' : service.title} — Dashboard`}>
+  <div class="mx-auto max-w-2xl px-4 sm:px-6 py-12">
+    <a href="/dashboard/listings" class="text-sm text-navy-600 hover:underline">← Listings</a>
+    <h1 class="font-display text-3xl mt-2 mb-8">{isNew ? 'New service' : 'Edit service'}</h1>
+
+    {
+      error && (
+        <div class="mb-6 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3">
+          {error}
+        </div>
+      )
+    }
+
+    <form
+      method="post"
+      action="/api/dashboard/service"
+      enctype="multipart/form-data"
+      class="space-y-5 bg-white rounded-2xl border border-sand-200 p-6 sm:p-8"
+    >
+      {!isNew && <input type="hidden" name="service_id" value={service.id} />}
+
+      <div>
+        <label for="title" class="block text-sm font-medium mb-1.5">Title *</label>
+        <input id="title" name="title" type="text" required maxlength="100" value={service?.title ?? ''} class={inputCls} />
+      </div>
+
+      <div>
+        <label for="description" class="block text-sm font-medium mb-1.5">Description</label>
+        <textarea id="description" name="description" rows="3" maxlength="2000" class={inputCls}>{service?.description ?? ''}</textarea>
+      </div>
+
+      <div class="grid sm:grid-cols-3 gap-4">
+        <div>
+          <label for="pricing_type" class="block text-sm font-medium mb-1.5">Pricing *</label>
+          <select id="pricing_type" name="pricing_type" required class={inputCls}>
+            {['fixed', 'per_person', 'per_day', 'per_hour'].map((t) => (
+              <option value={t} selected={service?.pricing_type === t}>
+                {t.replace('_', ' ')}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label for="base_price" class="block text-sm font-medium mb-1.5">Base price (€) *</label>
+          <input id="base_price" name="base_price" type="number" min="0" step="0.01" required value={service?.base_price ?? ''} class={inputCls} />
+        </div>
+        <div>
+          <label for="duration_minutes" class="block text-sm font-medium mb-1.5">Duration (min)</label>
+          <input id="duration_minutes" name="duration_minutes" type="number" min="0" step="15" value={service?.duration_minutes ?? ''} class={inputCls} />
+        </div>
+      </div>
+
+      <div class="grid sm:grid-cols-3 gap-4">
+        <div>
+          <label for="min_guests" class="block text-sm font-medium mb-1.5">Min guests</label>
+          <input id="min_guests" name="min_guests" type="number" min="1" value={service?.min_guests ?? 1} class={inputCls} />
+        </div>
+        <div>
+          <label for="max_guests" class="block text-sm font-medium mb-1.5">Max guests</label>
+          <input id="max_guests" name="max_guests" type="number" min="1" value={service?.max_guests ?? ''} class={inputCls} />
+        </div>
+        <div>
+          <label for="booking_mode" class="block text-sm font-medium mb-1.5">Booking mode *</label>
+          <select id="booking_mode" name="booking_mode" required class={inputCls}>
+            <option value="instant" selected={service?.booking_mode === 'instant'}>Instant + pay</option>
+            <option value="request" selected={service?.booking_mode === 'request'}>Request to book</option>
+          </select>
+        </div>
+      </div>
+
+      <div>
+        <label class="flex items-center gap-2 text-sm font-medium">
+          <input type="checkbox" name="active" checked={service ? service.active : true} class="rounded border-sand-200" />
+          Visible & bookable
+        </label>
+      </div>
+
+      <div>
+        <label for="new_images" class="block text-sm font-medium mb-1.5">Add photos</label>
+        <input id="new_images" name="new_images" type="file" accept="image/*" multiple class="text-sm" />
+        <p class="text-xs text-navy-600/70 mt-1">JPG/PNG/WebP, up to 5MB each.</p>
+      </div>
+
+      {
+        images.length > 0 && (
+          <div>
+            <div class="text-sm font-medium mb-2">Current photos</div>
+            <div class="grid grid-cols-3 gap-3">
+              {images.map((url) => (
+                <label class="relative block cursor-pointer group">
+                  <img src={url} alt="" class="rounded-lg aspect-[4/3] object-cover w-full" />
+                  <span class="absolute top-1.5 right-1.5 rounded bg-navy-950/70 text-white text-xs px-2 py-0.5 flex items-center gap-1">
+                    <input type="checkbox" name="remove_images" value={url} /> remove
+                  </span>
+                </label>
+              ))}
+            </div>
+          </div>
+        )
+      }
+
+      <button type="submit" class="w-full rounded-xl bg-gold-500 hover:bg-gold-400 text-navy-950 py-3 font-medium transition-colors">
+        {isNew ? 'Create service' : 'Save changes'}
+      </button>
+    </form>
+
+    {
+      !isNew && (
+        <div class="mt-8 bg-white rounded-2xl border border-sand-200 p-6 sm:p-8">
+          <h2 class="font-display text-xl mb-1">Seasonal pricing</h2>
+          <p class="text-sm text-navy-600 mb-5">
+            Override the base price for date ranges (e.g. high season July–August).
+          </p>
+
+          {seasons.length > 0 && (
+            <div class="space-y-2 mb-5">
+              {seasons.map((s: any) => (
+                <div class="flex items-center justify-between gap-3 rounded-xl border border-sand-200 px-4 py-2.5 text-sm">
+                  <div>
+                    <span class="font-medium">{s.name}</span>
+                    <span class="text-navy-600"> · {s.start_date} → {s.end_date} · €{Number(s.price)}</span>
+                  </div>
+                  <form method="post" action="/api/dashboard/season">
+                    <input type="hidden" name="action" value="delete" />
+                    <input type="hidden" name="season_id" value={s.id} />
+                    <input type="hidden" name="service_id" value={service.id} />
+                    <button class="text-red-600 hover:underline text-xs">remove</button>
+                  </form>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <form method="post" action="/api/dashboard/season" class="grid sm:grid-cols-[1fr_auto_auto_auto_auto] gap-2 items-end">
+            <input type="hidden" name="action" value="add" />
+            <input type="hidden" name="service_id" value={service.id} />
+            <div>
+              <label class="block text-xs font-medium mb-1">Name</label>
+              <input name="name" type="text" required placeholder="High season" class={inputCls} />
+            </div>
+            <div>
+              <label class="block text-xs font-medium mb-1">From</label>
+              <input name="start_date" type="date" required class={inputCls} />
+            </div>
+            <div>
+              <label class="block text-xs font-medium mb-1">To</label>
+              <input name="end_date" type="date" required class={inputCls} />
+            </div>
+            <div>
+              <label class="block text-xs font-medium mb-1">Price (€)</label>
+              <input name="price" type="number" min="0" step="0.01" required class={inputCls} />
+            </div>
+            <button class="rounded-xl bg-navy-900 hover:bg-navy-700 text-white px-5 py-2.5 text-sm font-medium transition-colors">
+              Add
+            </button>
+          </form>
+        </div>
+      )
+    }
+  </div>
+</Layout>

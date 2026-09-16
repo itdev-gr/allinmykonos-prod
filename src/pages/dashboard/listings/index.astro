@@ -1,0 +1,64 @@
+---
+import Layout from '../../../layouts/Layout.astro';
+import { getOwnerBusiness } from '../../../lib/dashboard';
+import { PRICING_LABEL, formatPrice } from '../../../lib/constants';
+
+const business = await getOwnerBusiness(Astro.locals);
+if (!business) return Astro.redirect('/dashboard');
+
+const { data: services } = await Astro.locals.supabase
+  .from('services')
+  .select('id, title, pricing_type, base_price, currency, booking_mode, active, images, sort_order')
+  .eq('business_id', business.id)
+  .order('sort_order');
+---
+
+<Layout title="Listings — Dashboard">
+  <div class="mx-auto max-w-4xl px-4 sm:px-6 py-12">
+    <a href="/dashboard" class="text-sm text-navy-600 hover:underline">← Dashboard</a>
+    <div class="flex items-center justify-between mt-2 mb-8">
+      <h1 class="font-display text-3xl">Listings</h1>
+      <a
+        href="/dashboard/listings/new"
+        class="rounded-full bg-gold-500 hover:bg-gold-400 text-navy-950 px-6 py-2.5 text-sm font-medium transition-colors"
+      >
+        + New service
+      </a>
+    </div>
+
+    {
+      !services || services.length === 0 ? (
+        <div class="rounded-2xl bg-white border border-sand-200 p-12 text-center text-navy-600">
+          No services yet — add your first one to start receiving bookings.
+        </div>
+      ) : (
+        <div class="space-y-3">
+          {services.map((s: any) => (
+            <a
+              href={`/dashboard/listings/${s.id}`}
+              class="flex items-center gap-4 rounded-2xl bg-white border border-sand-200 hover:border-gold-400 hover:shadow-md transition-all p-4"
+            >
+              <div class="w-20 h-14 rounded-lg bg-navy-100 overflow-hidden shrink-0">
+                {Array.isArray(s.images) && s.images[0] && (
+                  <img src={s.images[0]} alt="" class="w-full h-full object-cover" />
+                )}
+              </div>
+              <div class="flex-1 min-w-0">
+                <div class="font-medium truncate">{s.title}</div>
+                <div class="text-sm text-navy-600">
+                  {formatPrice(s.base_price, s.currency)} {PRICING_LABEL[s.pricing_type]} ·{' '}
+                  {s.booking_mode === 'instant' ? 'Instant' : 'On request'}
+                </div>
+              </div>
+              <span
+                class={`rounded-full px-3 py-1 text-xs font-medium ${s.active ? 'bg-emerald-100 text-emerald-800' : 'bg-gray-100 text-gray-600'}`}
+              >
+                {s.active ? 'Active' : 'Hidden'}
+              </span>
+            </a>
+          ))}
+        </div>
+      )
+    }
+  </div>
+</Layout>

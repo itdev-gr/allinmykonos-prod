@@ -1,0 +1,153 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import { getOwnerBusiness } from '../../lib/dashboard';
+import { MYKONOS_AREAS } from '../../lib/constants';
+
+const business = await getOwnerBusiness(Astro.locals);
+if (!business) return Astro.redirect('/dashboard/setup');
+
+const { data: categories } = await Astro.locals.supabase
+  .from('categories')
+  .select('id, name')
+  .eq('active', true)
+  .order('sort_order');
+
+const gallery: string[] = Array.isArray(business.gallery) ? (business.gallery as string[]) : [];
+const error = Astro.url.searchParams.get('error');
+const saved = Astro.url.searchParams.get('saved') === '1';
+const inputCls =
+  'w-full rounded-xl border border-sand-200 px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-gold-400';
+---
+
+<Layout title="Settings — Dashboard">
+  <div class="mx-auto max-w-2xl px-4 sm:px-6 py-12">
+    <a href="/dashboard" class="text-sm text-navy-600 hover:underline">← Dashboard</a>
+    <div class="flex items-center justify-between mt-2 mb-8">
+      <h1 class="font-display text-3xl">Business settings</h1>
+      <a href={`/b/${business.slug}`} class="text-sm text-navy-600 hover:underline">View public page →</a>
+    </div>
+
+    {saved && (
+      <div class="mb-6 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm px-4 py-3">
+        ✓ Saved.
+      </div>
+    )}
+    {error && (
+      <div class="mb-6 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3">
+        {error}
+      </div>
+    )}
+
+    <form
+      method="post"
+      action="/api/dashboard/business-update"
+      enctype="multipart/form-data"
+      class="space-y-5 bg-white rounded-2xl border border-sand-200 p-6 sm:p-8"
+    >
+      <div>
+        <label for="name" class="block text-sm font-medium mb-1.5">Business name *</label>
+        <input id="name" name="name" type="text" required maxlength="80" value={business.name} class={inputCls} />
+      </div>
+
+      <div class="grid sm:grid-cols-2 gap-5">
+        <div>
+          <label for="category_id" class="block text-sm font-medium mb-1.5">Category *</label>
+          <select id="category_id" name="category_id" required class={inputCls}>
+            {(categories ?? []).map((c) => (
+              <option value={c.id} selected={c.id === business.category_id}>{c.name}</option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label for="location_area" class="block text-sm font-medium mb-1.5">Area *</label>
+          <select id="location_area" name="location_area" required class={inputCls}>
+            {MYKONOS_AREAS.map((a) => (
+              <option value={a} selected={a === business.location_area}>{a}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      <div>
+        <label for="description" class="block text-sm font-medium mb-1.5">Description *</label>
+        <textarea id="description" name="description" rows="4" required maxlength="2000" class={inputCls}>{business.description}</textarea>
+      </div>
+
+      <div>
+        <label for="address" class="block text-sm font-medium mb-1.5">Address</label>
+        <input id="address" name="address" type="text" maxlength="200" value={business.address ?? ''} class={inputCls} />
+      </div>
+
+      <div class="grid sm:grid-cols-2 gap-5">
+        <div>
+          <label for="lat" class="block text-sm font-medium mb-1.5">Latitude</label>
+          <input id="lat" name="lat" type="number" step="any" placeholder="37.4451" value={business.lat ?? ''} class={inputCls} />
+        </div>
+        <div>
+          <label for="lng" class="block text-sm font-medium mb-1.5">Longitude</label>
+          <input id="lng" name="lng" type="number" step="any" placeholder="25.3287" value={business.lng ?? ''} class={inputCls} />
+        </div>
+      </div>
+
+      <div class="grid sm:grid-cols-2 gap-5">
+        <div>
+          <label for="phone" class="block text-sm font-medium mb-1.5">Phone *</label>
+          <input id="phone" name="phone" type="tel" required value={business.phone ?? ''} class={inputCls} />
+        </div>
+        <div>
+          <label for="email" class="block text-sm font-medium mb-1.5">Public email</label>
+          <input id="email" name="email" type="email" value={business.email ?? ''} class={inputCls} />
+        </div>
+      </div>
+
+      <div class="grid sm:grid-cols-2 gap-5">
+        <div>
+          <label for="website" class="block text-sm font-medium mb-1.5">Website</label>
+          <input id="website" name="website" type="url" value={business.website ?? ''} class={inputCls} />
+        </div>
+        <div>
+          <label for="instagram" class="block text-sm font-medium mb-1.5">Instagram</label>
+          <input id="instagram" name="instagram" type="text" value={business.instagram ?? ''} class={inputCls} />
+        </div>
+      </div>
+
+      <div class="grid sm:grid-cols-2 gap-5">
+        <div>
+          <label for="logo" class="block text-sm font-medium mb-1.5">Logo</label>
+          {business.logo_url && <img src={business.logo_url} alt="" class="w-16 h-16 rounded-lg object-cover mb-2" />}
+          <input id="logo" name="logo" type="file" accept="image/*" class="text-sm" />
+        </div>
+        <div>
+          <label for="cover" class="block text-sm font-medium mb-1.5">Cover photo</label>
+          {business.cover_url && <img src={business.cover_url} alt="" class="w-full aspect-[3/1] rounded-lg object-cover mb-2" />}
+          <input id="cover" name="cover" type="file" accept="image/*" class="text-sm" />
+        </div>
+      </div>
+
+      <div>
+        <label for="new_gallery" class="block text-sm font-medium mb-1.5">Add gallery photos</label>
+        <input id="new_gallery" name="new_gallery" type="file" accept="image/*" multiple class="text-sm" />
+      </div>
+
+      {gallery.length > 0 && (
+        <div>
+          <div class="text-sm font-medium mb-2">Gallery</div>
+          <div class="grid grid-cols-3 gap-3">
+            {gallery.map((url) => (
+              <label class="relative block cursor-pointer">
+                <img src={url} alt="" class="rounded-lg aspect-[4/3] object-cover w-full" />
+                <span class="absolute top-1.5 right-1.5 rounded bg-navy-950/70 text-white text-xs px-2 py-0.5 flex items-center gap-1">
+                  <input type="checkbox" name="remove_gallery" value={url} /> remove
+                </span>
+              </label>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <button type="submit" class="w-full rounded-xl bg-gold-500 hover:bg-gold-400 text-navy-950 py-3 font-medium transition-colors">
+        Save changes
+      </button>
+    </form>
+  </div>
+</Layout>

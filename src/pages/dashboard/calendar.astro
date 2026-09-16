@@ -1,0 +1,65 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import CalendarManager from '../../components/CalendarManager.tsx';
+import { getOwnerBusiness } from '../../lib/dashboard';
+import { todayISO } from '../../lib/booking';
+
+const business = await getOwnerBusiness(Astro.locals);
+if (!business) return Astro.redirect('/dashboard');
+
+const { data: services } = await Astro.locals.supabase
+  .from('services')
+  .select('id, title')
+  .eq('business_id', business.id)
+  .order('sort_order');
+
+const selectedId = Astro.url.searchParams.get('service') ?? services?.[0]?.id ?? null;
+
+let blockedDates: string[] = [];
+if (selectedId) {
+  const { data } = await Astro.locals.supabase
+    .from('availability')
+    .select('date')
+    .eq('service_id', selectedId)
+    .eq('is_blocked', true)
+    .gte('date', todayISO());
+  blockedDates = (data ?? []).map((r) => r.date);
+}
+---
+
+<Layout title="Calendar — Dashboard">
+  <div class="mx-auto max-w-6xl px-4 sm:px-6 py-12">
+    <a href="/dashboard" class="text-sm text-navy-600 hover:underline">← Dashboard</a>
+    <h1 class="font-display text-3xl mt-2 mb-6">Availability calendar</h1>
+
+    {
+      !services || services.length === 0 ? (
+        <div class="rounded-2xl bg-white border border-sand-200 p-12 text-center text-navy-600">
+          Add a <a href="/dashboard/listings/new" class="underline">service</a> first, then manage
+          its availability here.
+        </div>
+      ) : (
+        <>
+          <form method="get" class="mb-6 flex items-center gap-3">
+            <label for="service" class="text-sm text-navy-600">Service:</label>
+            <select
+              id="service"
+              name="service"
+              onchange="this.form.submit()"
+              class="rounded-full border border-sand-200 bg-white px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gold-400"
+            >
+              {services.map((s) => (
+                <option value={s.id} selected={s.id === selectedId}>
+                  {s.title}
+                </option>
+              ))}
+            </select>
+          </form>
+          {selectedId && (
+            <CalendarManager client:load serviceId={selectedId} initialBlocked={blockedDates} />
+          )}
+        </>
+      )
+    }
+  </div>
+</Layout>
