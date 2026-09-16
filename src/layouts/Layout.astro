@@ -4,17 +4,23 @@ import '../styles/global.css';
 interface Props {
   title?: string;
   description?: string;
+  transparentHeader?: boolean;
 }
 
 const {
   title = 'One Mykonos — Everything in Mykonos. One platform.',
   description = 'Book villas, restaurants, transfers, beach clubs, yachts and experiences in Mykonos. The all-in-one luxury concierge platform.',
+  transparentHeader = false,
 } = Astro.props;
 
 const user = Astro.locals.user;
 const profile = Astro.locals.profile;
 const dashboardHref =
   profile?.role === 'admin' ? '/admin' : profile?.role === 'business' ? '/dashboard' : '/account';
+
+const headerClass = transparentHeader
+  ? 'absolute inset-x-0 top-0 z-30 text-white'
+  : 'bg-navy-900 text-white';
 ---
 
 <html lang="en">
@@ -30,21 +36,21 @@ const dashboardHref =
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Marcellus&display=swap"
       rel="stylesheet"
     />
   </head>
   <body class="min-h-screen flex flex-col">
-    <header class="bg-navy-900 text-white">
+    <header class={headerClass}>
       <div class="mx-auto max-w-7xl px-4 sm:px-6 flex items-center justify-between h-16">
         <a href="/" class="flex items-baseline gap-1.5">
-          <span class="font-display text-2xl font-semibold tracking-wide">One</span>
-          <span class="font-display text-2xl font-light text-gold-400 tracking-wide">Mykonos</span>
+          <span class="font-display text-2xl tracking-wide">One</span>
+          <span class="font-display text-2xl text-gold-400 tracking-wide">Mykonos</span>
         </a>
         <nav class="hidden md:flex items-center gap-8 text-sm text-navy-100">
           <a href="/search" class="hover:text-gold-300 transition-colors">Explore</a>
           <a href="/#categories" class="hover:text-gold-300 transition-colors">Categories</a>
-          <a href="/partners" class="hover:text-gold-300 transition-colors">For Businesses</a>
+          <a href="/partners" class="hover:text-gold-300 transition-colors">For businesses</a>
         </nav>
         <div class="flex items-center gap-3 text-sm">
           {
@@ -82,14 +88,34 @@ const dashboardHref =
     </main>
 
     <footer class="bg-navy-950 text-navy-200 text-sm">
-      <div class="mx-auto max-w-7xl px-4 sm:px-6 py-10 flex flex-col sm:flex-row items-center justify-between gap-4">
-        <p>
-          <span class="font-display text-white">One Mykonos</span> — Everything in Mykonos. One
-          platform.
-        </p>
-        <div class="flex gap-6">
-          <a href="/partners" class="hover:text-white transition-colors">Become a partner</a>
-          <a href="/login" class="hover:text-white transition-colors">Log in</a>
+      <div class="mx-auto max-w-7xl px-4 sm:px-6 py-14 grid gap-10 sm:grid-cols-3">
+        <div>
+          <div class="font-display text-xl text-white mb-3">One Mykonos</div>
+          <p class="text-navy-200/80 leading-relaxed max-w-xs">
+            Everything the island offers — villas, tables, boats and experiences — booked in one
+            place.
+          </p>
+        </div>
+        <div>
+          <div class="text-white font-medium mb-3">Explore</div>
+          <ul class="space-y-2">
+            <li><a href="/c/accommodation" class="hover:text-white transition-colors">Villas & suites</a></li>
+            <li><a href="/c/dining" class="hover:text-white transition-colors">Restaurants</a></li>
+            <li><a href="/c/experiences" class="hover:text-white transition-colors">Beaches & experiences</a></li>
+            <li><a href="/c/transport" class="hover:text-white transition-colors">Transfers & rentals</a></li>
+          </ul>
+        </div>
+        <div>
+          <div class="text-white font-medium mb-3">For businesses</div>
+          <ul class="space-y-2">
+            <li><a href="/partners" class="hover:text-white transition-colors">Become a partner</a></li>
+            <li><a href="/login" class="hover:text-white transition-colors">Partner log in</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="border-t border-white/10">
+        <div class="mx-auto max-w-7xl px-4 sm:px-6 py-5 text-xs text-navy-200/60">
+          © {new Date().getFullYear()} One Mykonos. Mykonos, Cyclades, Greece.
         </div>
       </div>
     </footer>

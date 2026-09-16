@@ -1,113 +1,246 @@
 ---
 import Layout from '../layouts/Layout.astro';
+import { MYKONOS_AREAS } from '../lib/constants';
 
-const { data: categories } = await Astro.locals.supabase
-  .from('categories')
-  .select('slug, name, icon')
-  .eq('active', true)
-  .order('sort_order');
+const supabase = Astro.locals.supabase;
 
-const { data: featured } = await Astro.locals.supabase
-  .from('businesses')
-  .select('slug, name, description, cover_url, location_area, categories(name)')
-  .eq('status', 'approved')
-  .eq('featured', true)
-  .limit(6);
+const [{ data: categories }, { data: businesses }] = await Promise.all([
+  supabase.from('categories').select('id, slug, name').eq('active', true).order('sort_order'),
+  supabase
+    .from('businesses')
+    .select('slug, name, cover_url, location_area, category_id, featured, verified')
+    .eq('status', 'approved'),
+]);
 
-const categoryEmoji: Record<string, string> = {
-  transport: '🚗',
-  accommodation: '🏛️',
-  concierge: '🛎️',
-  dining: '🍽️',
-  nightlife: '🎧',
-  experiences: '⛵',
-  wellness: '💆',
-  shopping: '🛍️',
-  'local-services': '🤝',
-  events: '🎉',
-};
+const cats = categories ?? [];
+const biz = businesses ?? [];
+
+const countByCategory = new Map<string, number>();
+const coverByCategory = new Map<string, string>();
+for (const b of biz) {
+  countByCategory.set(b.category_id, (countByCategory.get(b.category_id) ?? 0) + 1);
+  if (b.cover_url && !coverByCategory.has(b.category_id)) {
+    coverByCategory.set(b.category_id, b.cover_url);
+  }
+}
+
+// The three categories that sell the island lead the index with imagery.
+const HERO_CATS = ['accommodation', 'dining', 'experiences'];
+const leadCats = HERO_CATS.map((slug) => cats.find((c) => c.slug === slug)).filter(Boolean) as any[];
+const restCats = cats.filter((c) => !HERO_CATS.includes(c.slug));
+
+const featured = biz.filter((b) => b.featured).slice(0, 8);
 ---
 
-<Layout>
-  <!-- Hero -->
-  <section class="relative bg-navy-900 text-white overflow-hidden">
-    <div
-      class="absolute inset-0 opacity-30"
-      style="background: radial-gradient(ellipse at 70% 20%, #1e3a5f 0%, transparent 60%), radial-gradient(ellipse at 20% 80%, #14294a 0%, transparent 50%);"
-    >
-    </div>
-    <div class="relative mx-auto max-w-7xl px-4 sm:px-6 py-24 sm:py-32 text-center">
-      <p class="text-gold-400 tracking-[0.3em] uppercase text-xs sm:text-sm mb-6">
-        The super app of Mykonos
-      </p>
-      <h1 class="font-display text-4xl sm:text-6xl font-semibold leading-tight mb-6">
-        Everything in Mykonos.<br />
-        <span class="text-gold-300 italic font-normal">One platform.</span>
+<Layout transparentHeader>
+  <!-- ======== Hero: Aegean sunset scene ======== -->
+  <section
+    class="relative overflow-hidden text-white"
+    style="background: linear-gradient(180deg, #081a2e 0%, #0e2a47 30%, #1d4568 52%, #5f89a6 68%, #e8b04b 86%, #d98e3b 94%);"
+  >
+    <div class="relative z-10 mx-auto max-w-4xl px-4 sm:px-6 pt-36 pb-56 sm:pt-44 sm:pb-72 text-center">
+      <h1 class="hero-reveal font-display text-[2.6rem] leading-[1.08] sm:text-6xl mb-5">
+        Everything the island offers.<br />One reservation away.
       </h1>
-      <p class="text-navy-100 max-w-2xl mx-auto mb-10 text-base sm:text-lg">
-        Villas, restaurants, beach clubs, yachts, transfers and experiences — discover and book the
-        best of the island in one place.
+      <p class="hero-reveal-2 text-navy-100 text-base sm:text-lg mb-9 max-w-xl mx-auto">
+        Villas, tables, boats, beach beds and everything between — with real availability and
+        instant confirmation.
       </p>
-      <form action="/search" method="get" class="max-w-xl mx-auto flex rounded-full bg-white p-1.5 shadow-xl">
+
+      <form
+        action="/search"
+        method="get"
+        class="hero-reveal-3 mx-auto max-w-2xl rounded-2xl bg-white text-navy-900 shadow-2xl shadow-navy-950/40 p-2 grid sm:grid-cols-[1.4fr_1fr_1fr_auto] gap-2"
+      >
         <input
           type="search"
           name="q"
-          placeholder="What are you looking for? e.g. sunset cruise, villa…"
-          class="flex-1 rounded-full px-5 text-navy-900 placeholder:text-navy-600/50 focus:outline-none text-sm sm:text-base"
+          placeholder="Try “sunset cruise” or “private chef”"
+          class="rounded-xl px-4 py-3 text-sm placeholder:text-navy-600/50 focus:outline-none focus:ring-2 focus:ring-gold-400"
         />
+        <select
+          name="category"
+          aria-label="Category"
+          class="rounded-xl px-3 py-3 text-sm bg-transparent sm:border-l border-plaster-2 focus:outline-none focus:ring-2 focus:ring-gold-400"
+        >
+          <option value="">Any category</option>
+          {cats.map((c) => <option value={c.slug}>{c.name}</option>)}
+        </select>
+        <select
+          name="area"
+          aria-label="Area"
+          class="rounded-xl px-3 py-3 text-sm bg-transparent sm:border-l border-plaster-2 focus:outline-none focus:ring-2 focus:ring-gold-400"
+        >
+          <option value="">Anywhere</option>
+          {MYKONOS_AREAS.map((a) => <option value={a}>{a}</option>)}
+        </select>
         <button
           type="submit"
-          class="rounded-full bg-navy-900 hover:bg-navy-700 text-white px-6 py-2.5 text-sm font-medium transition-colors"
+          class="rounded-xl bg-navy-900 hover:bg-navy-700 text-white px-6 py-3 text-sm font-medium transition-colors"
         >
           Search
         </button>
       </form>
     </div>
+
+    <!-- Chora silhouette, windmills and sea -->
+    <svg
+      class="absolute bottom-0 left-0 w-full h-auto pointer-events-none select-none"
+      viewBox="0 0 1440 300"
+      preserveAspectRatio="xMidYMax slice"
+      aria-hidden="true"
+    >
+      <defs>
+        <radialGradient id="sunglow" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stop-color="#f6d189" stop-opacity="0.9"></stop>
+          <stop offset="55%" stop-color="#e8b04b" stop-opacity="0.35"></stop>
+          <stop offset="100%" stop-color="#e8b04b" stop-opacity="0"></stop>
+        </radialGradient>
+      </defs>
+
+      <!-- sun -->
+      <circle cx="720" cy="196" r="120" fill="url(#sunglow)"></circle>
+      <circle cx="720" cy="196" r="30" fill="#f6d189"></circle>
+
+      <!-- windmill hill, left -->
+      <path d="M0 300 L0 232 Q170 196 400 236 L430 300 Z" fill="#0b2036"></path>
+      {
+        [
+          { x: 110, y: 158, s: 1 },
+          { x: 220, y: 146, s: 1.15 },
+          { x: 330, y: 162, s: 0.9 },
+        ].map(({ x, y, s }) => (
+          <g transform={`translate(${x} ${y}) scale(${s})`} fill="#081a2e">
+            <path d="M-16 78 L-11 14 L11 14 L16 78 Z" />
+            <path d="M-14 14 Q0 -8 14 14 Z" />
+            <g stroke="#081a2e" stroke-width="3.5" stroke-linecap="round">
+              <line x1="0" y1="8" x2="26" y2="-18" />
+              <line x1="0" y1="8" x2="-26" y2="-18" />
+              <line x1="0" y1="8" x2="26" y2="34" />
+              <line x1="0" y1="8" x2="-26" y2="34" />
+            </g>
+          </g>
+        ))
+      }
+
+      <!-- Chora skyline, right -->
+      <g fill="#081a2e">
+        <path d="M820 300 L820 246 L878 246 L878 300 Z"></path>
+        <path d="M870 300 L870 224 L936 224 L936 300 Z"></path>
+        <path d="M930 300 L930 252 L988 252 L988 300 Z"></path>
+        <!-- church dome + belfry -->
+        <path d="M984 300 L984 240 Q1006 214 1028 240 L1028 300 Z"></path>
+        <path d="M1000 240 L1000 214 L1012 214 L1012 240 Z"></path>
+        <path d="M998 214 L1006 200 L1014 214 Z"></path>
+        <path d="M1024 300 L1024 232 L1092 232 L1092 300 Z"></path>
+        <path d="M1086 300 L1086 254 L1150 254 L1150 300 Z"></path>
+        <path d="M1144 300 L1144 226 L1216 226 L1216 300 Z"></path>
+        <path d="M1210 300 L1210 250 L1282 250 L1282 300 Z"></path>
+        <path d="M1276 300 L1276 236 L1360 236 L1360 300 Z"></path>
+        <path d="M1354 300 L1354 258 L1440 258 L1440 300 Z"></path>
+      </g>
+      <!-- lit windows -->
+      <g fill="#e8b04b" opacity="0.85">
+        <rect x="892" y="238" width="5" height="7" rx="1"></rect>
+        <rect x="912" y="256" width="5" height="7" rx="1"></rect>
+        <rect x="1050" y="248" width="5" height="7" rx="1"></rect>
+        <rect x="1070" y="266" width="5" height="7" rx="1"></rect>
+        <rect x="1168" y="244" width="5" height="7" rx="1"></rect>
+        <rect x="1190" y="262" width="5" height="7" rx="1"></rect>
+        <rect x="1302" y="252" width="5" height="7" rx="1"></rect>
+        <rect x="1398" y="270" width="5" height="7" rx="1"></rect>
+      </g>
+
+      <!-- sea -->
+      <path
+        d="M0 300 L0 282 Q120 274 240 280 T480 280 T720 278 T960 280 T1200 278 T1440 280 L1440 300 Z"
+        fill="#081a2e"
+      ></path>
+      <g stroke="#f6d189" stroke-width="1.5" opacity="0.5" stroke-linecap="round">
+        <line x1="660" y1="286" x2="780" y2="286"></line>
+        <line x1="690" y1="292" x2="750" y2="292"></line>
+      </g>
+    </svg>
   </section>
 
-  <!-- Categories -->
-  <section id="categories" class="mx-auto max-w-7xl px-4 sm:px-6 py-16 sm:py-20">
-    <h2 class="font-display text-3xl sm:text-4xl text-center mb-2">Explore the island</h2>
-    <p class="text-center text-navy-600 mb-10">Ten worlds of Mykonos, one booking away.</p>
-    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+  <!-- ======== The island index ======== -->
+  <section id="categories" class="mx-auto max-w-7xl px-4 sm:px-6 py-20 sm:py-24">
+    <div class="max-w-2xl mb-12">
+      <h2 class="font-display text-4xl sm:text-5xl mb-4">The island index</h2>
+      <p class="text-navy-600 leading-relaxed">
+        Ten worlds, one platform. Start with where you'll stay, eat and swim — the rest of Mykonos
+        follows.
+      </p>
+    </div>
+
+    <div class="grid lg:grid-cols-3 gap-6 mb-12">
       {
-        (categories ?? []).map((c) => (
+        leadCats.map((c) => (
+          <a href={`/c/${c.slug}`} class="group relative rounded-2xl overflow-hidden aspect-[4/3] lg:aspect-[4/5] bg-navy-800">
+            {coverByCategory.get(c.id) && (
+              <img
+                src={coverByCategory.get(c.id)}
+                alt=""
+                loading="lazy"
+                class="absolute inset-0 w-full h-full object-cover opacity-80 group-hover:opacity-100 group-hover:scale-[1.03] transition-all duration-500"
+              />
+            )}
+            <div class="absolute inset-0 bg-gradient-to-t from-navy-950/90 via-navy-950/20 to-transparent"></div>
+            <div class="absolute bottom-0 inset-x-0 p-6 text-white">
+              <div class="font-display text-3xl">{c.name}</div>
+              <div class="text-sm text-navy-100/90 mt-1">
+                {countByCategory.get(c.id) ?? 0}{' '}
+                {(countByCategory.get(c.id) ?? 0) === 1 ? 'partner' : 'partners'} on the island
+              </div>
+            </div>
+          </a>
+        ))
+      }
+    </div>
+
+    <div class="grid sm:grid-cols-2 gap-x-14">
+      {
+        restCats.map((c) => (
           <a
             href={`/c/${c.slug}`}
-            class="group rounded-2xl bg-white border border-sand-200 hover:border-gold-400 hover:shadow-lg transition-all p-6 text-center"
+            class="group flex items-baseline justify-between gap-4 border-b border-navy-900/10 py-4 hover:border-gold-500 transition-colors"
           >
-            <div class="text-3xl mb-3">{categoryEmoji[c.slug] ?? '✨'}</div>
-            <div class="font-medium text-sm text-navy-800 group-hover:text-navy-950">{c.name}</div>
+            <span class="font-display text-xl sm:text-2xl group-hover:text-navy-700">{c.name}</span>
+            <span class="text-sm text-navy-600/70 whitespace-nowrap">
+              {countByCategory.get(c.id) ?? 0} {(countByCategory.get(c.id) ?? 0) === 1 ? 'partner' : 'partners'}
+            </span>
           </a>
         ))
       }
     </div>
   </section>
 
-  <!-- Featured -->
+  <!-- ======== Featured: postcards ======== -->
   {
-    featured && featured.length > 0 && (
-      <section class="bg-sand-100 border-y border-sand-200">
-        <div class="mx-auto max-w-7xl px-4 sm:px-6 py-16">
-          <h2 class="font-display text-3xl text-center mb-10">Featured on One Mykonos</h2>
-          <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {featured.map((b) => (
+    featured.length > 0 && (
+      <section class="bg-plaster-2 border-y border-navy-900/5">
+        <div class="mx-auto max-w-7xl px-4 sm:px-6 py-20">
+          <div class="flex items-end justify-between gap-6 mb-10">
+            <h2 class="font-display text-4xl">Chosen by our concierge</h2>
+            <a href="/search" class="text-sm text-navy-600 hover:text-navy-900 underline underline-offset-4 whitespace-nowrap">
+              See everything
+            </a>
+          </div>
+          <div class="flex gap-8 overflow-x-auto pb-6 snap-x snap-mandatory -mx-4 px-4 sm:mx-0 sm:px-0">
+            {featured.map((b, i) => (
               <a
                 href={`/b/${b.slug}`}
-                class="group rounded-2xl overflow-hidden bg-white border border-sand-200 hover:shadow-xl transition-shadow"
+                class={`snap-start shrink-0 w-72 bg-white p-3 pb-5 shadow-lg shadow-navy-950/10 hover:shadow-xl hover:-translate-y-1 transition-all ${i % 2 === 0 ? '-rotate-1' : 'rotate-1'}`}
               >
-                <div class="aspect-[3/2] bg-navy-100 overflow-hidden">
-                  {b.cover_url && (
-                    <img
-                      src={b.cover_url}
-                      alt={b.name}
-                      class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                    />
-                  )}
+                <div class="aspect-[4/3] bg-navy-100 overflow-hidden mb-4">
+                  {b.cover_url && <img src={b.cover_url} alt={b.name} loading="lazy" class="w-full h-full object-cover" />}
                 </div>
-                <div class="p-5">
-                  <div class="font-display text-lg">{b.name}</div>
-                  <div class="text-sm text-navy-600 mt-1">{b.location_area}</div>
+                <div class="px-1">
+                  <div class="font-display text-xl leading-snug">{b.name}</div>
+                  <div class="text-sm text-navy-600 mt-1">
+                    {b.location_area}
+                    {b.verified && <span class="text-gold-600 ml-2">Verified</span>}
+                  </div>
                 </div>
               </a>
             ))}
@@ -117,17 +250,48 @@ const categoryEmoji: Record<string, string> = {
     )
   }
 
-  <!-- Partner CTA -->
-  <section class="mx-auto max-w-7xl px-4 sm:px-6 py-16 sm:py-20 text-center">
-    <h2 class="font-display text-3xl mb-4">Run a business in Mykonos?</h2>
-    <p class="text-navy-600 max-w-xl mx-auto mb-8">
-      Join the platform, manage your calendar and bookings, and reach thousands of visitors.
-    </p>
-    <a
-      href="/partners"
-      class="inline-block rounded-full bg-navy-900 hover:bg-navy-700 text-white px-8 py-3 font-medium transition-colors"
-    >
-      Become a partner
-    </a>
+  <!-- ======== Concierge promise ======== -->
+  <section class="mx-auto max-w-7xl px-4 sm:px-6 py-20">
+    <div class="grid sm:grid-cols-3 gap-10 sm:gap-0 sm:divide-x divide-navy-900/10">
+      <div class="sm:pr-10">
+        <h3 class="font-display text-2xl mb-2">Real availability</h3>
+        <p class="text-navy-600 text-sm leading-relaxed">
+          Calendars are managed live by each business. If a date is open here, it's open on the
+          island.
+        </p>
+      </div>
+      <div class="sm:px-10">
+        <h3 class="font-display text-2xl mb-2">Verified partners</h3>
+        <p class="text-navy-600 text-sm leading-relaxed">
+          Every villa, restaurant and captain is reviewed and approved by our local team before
+          going live.
+        </p>
+      </div>
+      <div class="sm:pl-10">
+        <h3 class="font-display text-2xl mb-2">Book with confidence</h3>
+        <p class="text-navy-600 text-sm leading-relaxed">
+          Pay securely online, get instant confirmation, and keep every reservation in one place.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======== Partner CTA ======== -->
+  <section class="bg-navy-900 text-white">
+    <div class="mx-auto max-w-7xl px-4 sm:px-6 py-20 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-8">
+      <div class="max-w-xl">
+        <h2 class="font-display text-3xl sm:text-4xl mb-3">Run a business in Mykonos?</h2>
+        <p class="text-navy-100">
+          Take bookings, manage your calendar and reach the island's visitors — with your own
+          dashboard on One Mykonos.
+        </p>
+      </div>
+      <a
+        href="/partners"
+        class="rounded-full bg-gold-500 hover:bg-gold-400 text-navy-950 px-8 py-3.5 font-medium transition-colors whitespace-nowrap"
+      >
+        Become a partner
+      </a>
+    </div>
   </section>
 </Layout>

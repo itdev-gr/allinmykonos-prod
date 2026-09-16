@@ -1,26 +1,37 @@
 @import "tailwindcss";
 
 @theme {
-  /* One Mykonos — luxury Aegean palette */
+  /* One Mykonos — Aegean editorial palette */
+  --color-plaster: #f7f6f2;
+  --color-plaster-2: #efece4;
+
   --color-navy-50: #f0f4fa;
   --color-navy-100: #dce6f2;
   --color-navy-200: #b8cce4;
   --color-navy-600: #1e3a5f;
-  --color-navy-700: #14294a;
-  --color-navy-800: #0e1f3a;
-  --color-navy-900: #0a1729;
-  --color-navy-950: #060e1a;
+  --color-navy-700: #17324e;
+  --color-navy-800: #122841;
+  --color-navy-900: #0e2a47;
+  --color-navy-950: #081a2e;
+
+  --color-sea-400: #5f89a6;
+  --color-sea-600: #356b8c;
+  --color-sea-800: #1d4568;
 
   --color-gold-300: #e3cd9a;
   --color-gold-400: #d4b878;
   --color-gold-500: #c8a55c;
   --color-gold-600: #ab8840;
 
-  --color-sand-50: #faf8f4;
-  --color-sand-100: #f4efe6;
-  --color-sand-200: #e8dfd0;
+  --color-sunset-400: #e8b04b;
+  --color-sunset-600: #d98e3b;
 
-  --font-display: "Playfair Display", Georgia, serif;
+  /* legacy aliases used across inner pages */
+  --color-sand-50: #f7f6f2;
+  --color-sand-100: #efece4;
+  --color-sand-200: #e3ded2;
+
+  --font-display: "Marcellus", "Times New Roman", serif;
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
 }
 
@@ -30,6 +41,39 @@ html {
 
 body {
   font-family: var(--font-sans);
-  background: var(--color-sand-50);
+  background: var(--color-plaster);
   color: var(--color-navy-900);
+}
+
+/* Single orchestrated hero reveal on the home page */
+@keyframes hero-up {
+  from {
+    opacity: 0;
+    transform: translateY(22px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.hero-reveal {
+  animation: hero-up 0.9s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+.hero-reveal-2 {
+  animation: hero-up 0.9s cubic-bezier(0.2, 0.7, 0.2, 1) 0.15s both;
+}
+.hero-reveal-3 {
+  animation: hero-up 0.9s cubic-bezier(0.2, 0.7, 0.2, 1) 0.3s both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  .hero-reveal,
+  .hero-reveal-2,
+  .hero-reveal-3 {
+    animation: none;
+  }
 }
