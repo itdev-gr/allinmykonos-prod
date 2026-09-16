@@ -5,6 +5,8 @@ const PROTECTED: Array<{ prefix: string; roles: string[] }> = [
   { prefix: '/admin', roles: ['admin'] },
   { prefix: '/dashboard', roles: ['business', 'admin'] },
   { prefix: '/account', roles: ['customer', 'business', 'admin'] },
+  { prefix: '/bookings', roles: ['customer', 'business', 'admin'] },
+  { prefix: '/pay', roles: ['customer', 'business', 'admin'] },
 ];
 
 export const onRequest = defineMiddleware(async (context, next) => {

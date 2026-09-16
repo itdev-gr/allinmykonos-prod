@@ -1,43 +1,90 @@
 ---
 import Layout from '../../layouts/Layout.astro';
+import BookingWidget from '../../components/BookingWidget.tsx';
 import { PRICING_LABEL, formatPrice } from '../../lib/constants';
+import { todayISO, maxBookingDateISO } from '../../lib/booking';
 
 const { serviceId } = Astro.params;
 const supabase = Astro.locals.supabase;
 
 const { data: service } = await supabase
   .from('services')
-  .select('id, title, description, base_price, currency, pricing_type, businesses(name, slug, phone, email)')
+  .select(
+    `id, title, description, base_price, currency, pricing_type, duration_minutes,
+     min_guests, max_guests, booking_mode, images, active,
+     businesses!inner(name, slug, location_area, status),
+     service_pricing_seasons(start_date, end_date, price)`
+  )
   .eq('id', serviceId!)
   .maybeSingle();
 
-if (!service) return Astro.redirect('/404');
+if (!service || !service.active) return Astro.redirect('/404');
 const business = service.businesses as any;
+if (business.status !== 'approved') return Astro.redirect('/404');
+
+const { data: blocked } = await supabase
+  .from('availability')
+  .select('date')
+  .eq('service_id', service.id)
+  .eq('is_blocked', true)
+  .gte('date', todayISO())
+  .lte('date', maxBookingDateISO());
+
+const error = Astro.url.searchParams.get('error');
+const images: string[] = Array.isArray(service.images) ? service.images : [];
 ---
 
 <Layout title={`Book ${service.title} — One Mykonos`}>
-  <div class="mx-auto max-w-xl px-4 sm:px-6 py-16 text-center">
-    <a href={`/b/${business?.slug}`} class="text-sm text-navy-600 hover:underline">← Back to {business?.name}</a>
-    <h1 class="font-display text-3xl mt-4 mb-2">{service.title}</h1>
-    <p class="font-display text-2xl text-navy-700 mb-8">
-      {formatPrice(service.base_price, service.currency)}
-      <span class="text-sm text-navy-600 font-sans">{PRICING_LABEL[service.pricing_type]}</span>
-    </p>
-    <div class="rounded-2xl bg-white border border-sand-200 p-8">
-      <p class="text-navy-600 mb-4">
-        Online booking is launching very soon. In the meantime, reserve directly:
-      </p>
-      <div class="space-y-2 text-sm">
-        {business?.phone && (
-          <div>
-            📞 <a href={`tel:${business.phone}`} class="font-medium hover:underline">{business.phone}</a>
-          </div>
-        )}
-        {business?.email && (
-          <div>
-            ✉️ <a href={`mailto:${business.email}`} class="font-medium hover:underline">{business.email}</a>
-          </div>
-        )}
+  <div class="mx-auto max-w-4xl px-4 sm:px-6 py-10">
+    <a href={`/b/${business.slug}`} class="text-sm text-navy-600 hover:underline">
+      ← Back to {business.name}
+    </a>
+
+    {
+      error && (
+        <div class="mt-4 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3">
+          {error}
+        </div>
+      )
+    }
+
+    <div class="grid md:grid-cols-[1fr_360px] gap-8 mt-5 items-start">
+      <div class="min-w-0">
+        {
+          images[0] && (
+            <img src={images[0]} alt={service.title} class="rounded-2xl w-full aspect-[16/9] object-cover mb-6" />
+          )
+        }
+        <h1 class="font-display text-3xl mb-1">{service.title}</h1>
+        <p class="text-navy-600 text-sm mb-4">
+          {business.name} · {business.location_area}
+        </p>
+        <p class="font-display text-2xl mb-4">
+          {formatPrice(service.base_price, service.currency)}
+          <span class="text-sm text-navy-600 font-sans">{PRICING_LABEL[service.pricing_type]}</span>
+        </p>
+        {service.description && <p class="text-navy-700 leading-relaxed">{service.description}</p>}
+        <div class="text-sm text-navy-600 mt-4 flex gap-4">
+          {service.duration_minutes && <span>⏱ {Math.round(service.duration_minutes / 60)} hours</span>}
+          {service.max_guests && <span>👥 {service.min_guests}–{service.max_guests} guests</span>}
+        </div>
+      </div>
+
+      <div class="md:sticky md:top-6">
+        <BookingWidget
+          client:load
+          serviceId={service.id}
+          pricingType={service.pricing_type}
+          basePrice={Number(service.base_price)}
+          currency={service.currency}
+          durationMinutes={service.duration_minutes}
+          minGuests={service.min_guests}
+          maxGuests={service.max_guests}
+          bookingMode={service.booking_mode}
+          seasons={(service.service_pricing_seasons as any[]) ?? []}
+          blockedDates={(blocked ?? []).map((b) => b.date)}
+          loggedIn={!!Astro.locals.user}
+        />
       </div>
     </div>
   </div>

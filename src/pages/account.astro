@@ -38,7 +38,8 @@ const statusStyles: Record<string, string> = {
       ) : (
         <ul class="space-y-4">
           {bookings.map((b: any) => (
-            <li class="rounded-2xl bg-white border border-sand-200 p-5 flex items-center justify-between gap-4">
+            <li>
+            <a href={`/bookings/${b.id}`} class="rounded-2xl bg-white border border-sand-200 hover:border-gold-400 hover:shadow-md transition-all p-5 flex items-center justify-between gap-4">
               <div>
                 <div class="font-medium">{b.services?.title}</div>
                 <div class="text-sm text-navy-600">
@@ -54,6 +55,7 @@ const statusStyles: Record<string, string> = {
                 </span>
                 <div class="font-medium mt-2">€{Number(b.total_price).toFixed(2)}</div>
               </div>
+            </a>
             </li>
           ))}
         </ul>

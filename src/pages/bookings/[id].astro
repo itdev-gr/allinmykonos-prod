@@ -1,0 +1,139 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import { formatPrice } from '../../lib/constants';
+import { todayISO } from '../../lib/booking';
+
+const { id } = Astro.params;
+const supabase = Astro.locals.supabase;
+
+const { data: booking } = await supabase
+  .from('bookings')
+  .select(
+    `id, booking_ref, booking_date, start_time, guests, total_price, currency, status,
+     special_requests, customer_name, created_at,
+     services(title, booking_mode), businesses(name, slug, phone, location_area),
+     payments(status, amount, paid_at)`
+  )
+  .eq('id', id!)
+  .maybeSingle();
+
+if (!booking) return Astro.redirect('/404');
+
+const service = booking.services as any;
+const business = booking.businesses as any;
+const payment = (booking.payments as any[])?.[0];
+const justPaid = Astro.url.searchParams.get('paid') === '1';
+
+const canCancel =
+  ['pending', 'confirmed'].includes(booking.status) && booking.booking_date >= todayISO();
+const needsPayment = payment && payment.status === 'unpaid' && booking.status !== 'cancelled';
+
+const statusInfo: Record<string, { label: string; cls: string; note: string }> = {
+  pending: {
+    label: 'Pending',
+    cls: 'bg-amber-100 text-amber-800',
+    note: service?.booking_mode === 'request'
+      ? 'Waiting for the business to confirm your request.'
+      : 'Waiting for payment to confirm your booking.',
+  },
+  confirmed: { label: 'Confirmed', cls: 'bg-emerald-100 text-emerald-800', note: 'You are all set — see you in Mykonos!' },
+  rejected: { label: 'Not available', cls: 'bg-red-100 text-red-700', note: 'The business could not accommodate this request.' },
+  cancelled: { label: 'Cancelled', cls: 'bg-gray-100 text-gray-600', note: 'This booking was cancelled.' },
+  completed: { label: 'Completed', cls: 'bg-navy-100 text-navy-700', note: 'Thanks for booking with One Mykonos!' },
+  no_show: { label: 'No show', cls: 'bg-gray-100 text-gray-600', note: '' },
+};
+const st = statusInfo[booking.status];
+---
+
+<Layout title={`Booking ${booking.booking_ref} — One Mykonos`}>
+  <div class="mx-auto max-w-xl px-4 py-12">
+    {
+      justPaid && (
+        <div class="mb-6 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm px-4 py-3 text-center">
+          ✓ Payment successful — your booking is confirmed!
+        </div>
+      )
+    }
+
+    <div class="rounded-2xl bg-white border border-sand-200 overflow-hidden">
+      <div class="bg-navy-900 text-white px-6 py-5 flex items-center justify-between">
+        <div>
+          <div class="font-display text-xl">{service?.title}</div>
+          <a href={`/b/${business?.slug}`} class="text-sm text-navy-200 hover:text-white">
+            {business?.name} · {business?.location_area}
+          </a>
+        </div>
+        <span class={`rounded-full px-3 py-1 text-xs font-medium ${st.cls}`}>{st.label}</span>
+      </div>
+
+      <div class="p-6 space-y-3 text-sm">
+        {st.note && <p class="text-navy-600">{st.note}</p>}
+        <div class="grid grid-cols-2 gap-3 pt-2">
+          <div>
+            <div class="text-navy-600/70 text-xs uppercase tracking-wide">Reference</div>
+            <div class="font-mono font-medium">{booking.booking_ref}</div>
+          </div>
+          <div>
+            <div class="text-navy-600/70 text-xs uppercase tracking-wide">Date</div>
+            <div class="font-medium">{booking.booking_date}</div>
+          </div>
+          <div>
+            <div class="text-navy-600/70 text-xs uppercase tracking-wide">Guests</div>
+            <div class="font-medium">{booking.guests}</div>
+          </div>
+          <div>
+            <div class="text-navy-600/70 text-xs uppercase tracking-wide">Total</div>
+            <div class="font-medium">
+              {formatPrice(booking.total_price, booking.currency)}
+              {payment && (
+                <span class={payment.status === 'paid' ? 'text-emerald-700' : 'text-amber-700'}>
+                  {' '}· {payment.status}
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+        {
+          booking.special_requests && (
+            <div class="pt-2">
+              <div class="text-navy-600/70 text-xs uppercase tracking-wide">Special requests</div>
+              <div>{booking.special_requests}</div>
+            </div>
+          )
+        }
+      </div>
+
+      <div class="px-6 pb-6 flex gap-3">
+        {
+          needsPayment && (
+            <a
+              href={`/pay/${booking.id}`}
+              class="flex-1 text-center rounded-xl bg-gold-500 hover:bg-gold-400 text-navy-950 py-2.5 text-sm font-medium transition-colors"
+            >
+              Complete payment
+            </a>
+          )
+        }
+        {
+          canCancel && (
+            <form method="post" action="/api/bookings/cancel" class="flex-1">
+              <input type="hidden" name="booking_id" value={booking.id} />
+              <button
+                type="submit"
+                class="w-full rounded-xl border border-sand-200 hover:border-red-300 hover:text-red-600 py-2.5 text-sm font-medium transition-colors"
+              >
+                Cancel booking
+              </button>
+            </form>
+          )
+        }
+        <a
+          href="/account"
+          class="flex-1 text-center rounded-xl border border-sand-200 hover:border-navy-200 py-2.5 text-sm font-medium transition-colors"
+        >
+          My bookings
+        </a>
+      </div>
+    </div>
+  </div>
+</Layout>
