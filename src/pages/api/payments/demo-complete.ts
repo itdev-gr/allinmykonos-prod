@@ -1,10 +1,13 @@
 import type { APIRoute } from 'astro';
 import { createSupabaseAdmin } from '../../../lib/supabase';
+import { getStripe } from '../../../lib/stripe';
 
 // Demo payment completion. Replaced by the Stripe Checkout webhook at launch —
 // the success path (payment paid + booking confirmed) is identical.
 export const POST: APIRoute = async ({ request, locals, redirect }) => {
   if (!locals.user) return redirect('/login');
+  // Once real payments are live, the demo path is disabled.
+  if (getStripe()) return redirect('/account');
 
   const form = await request.formData();
   const bookingId = form.get('booking_id')?.toString() ?? '';

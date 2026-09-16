@@ -1,0 +1,77 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import { getOwnerBusiness } from '../../lib/dashboard';
+
+const business = await getOwnerBusiness(Astro.locals);
+if (!business) return Astro.redirect('/dashboard');
+
+const { data: reviews } = await Astro.locals.supabase
+  .from('reviews')
+  .select('id, rating, comment, business_reply, created_at, bookings(booking_ref, customer_name), is_published')
+  .eq('business_id', business.id)
+  .order('created_at', { ascending: false });
+
+const list = reviews ?? [];
+const avg = list.length ? list.reduce((s, r) => s + r.rating, 0) / list.length : null;
+---
+
+<Layout title="Reviews — Dashboard">
+  <div class="mx-auto max-w-3xl px-4 sm:px-6 py-12">
+    <a href="/dashboard" class="text-sm text-navy-600 hover:underline">← Dashboard</a>
+    <div class="flex items-baseline justify-between mt-2 mb-8">
+      <h1 class="font-display text-3xl">Reviews</h1>
+      {avg && (
+        <div class="text-navy-700">
+          <span class="text-gold-500 text-xl">★</span> {avg.toFixed(1)}
+          <span class="text-navy-600/60 text-sm">({list.length})</span>
+        </div>
+      )}
+    </div>
+
+    {
+      list.length === 0 ? (
+        <div class="rounded-2xl bg-white border border-sand-200 p-12 text-center text-navy-600">
+          No reviews yet. Customers can review after a completed booking.
+        </div>
+      ) : (
+        <div class="space-y-4">
+          {list.map((r: any) => (
+            <div class="rounded-2xl bg-white border border-sand-200 p-6">
+              <div class="flex items-start justify-between gap-4">
+                <div>
+                  <div class="text-gold-500">{'★'.repeat(r.rating)}{'☆'.repeat(5 - r.rating)}</div>
+                  <div class="text-xs text-navy-600/70 mt-1">
+                    {r.bookings?.customer_name} · booking {r.bookings?.booking_ref} ·{' '}
+                    {new Date(r.created_at).toLocaleDateString('en-GB')}
+                  </div>
+                </div>
+              </div>
+              {r.comment && <p class="text-sm text-navy-700 mt-3">{r.comment}</p>}
+
+              {r.business_reply ? (
+                <div class="mt-3 pl-4 border-l-2 border-sand-200 text-sm text-navy-600">
+                  <span class="font-medium">Your reply:</span> {r.business_reply}
+                </div>
+              ) : (
+                <form method="post" action="/api/dashboard/review-reply" class="mt-4 flex gap-2">
+                  <input type="hidden" name="review_id" value={r.id} />
+                  <input
+                    name="reply"
+                    type="text"
+                    required
+                    maxlength="500"
+                    placeholder="Reply publicly…"
+                    class="flex-1 rounded-xl border border-sand-200 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gold-400"
+                  />
+                  <button class="rounded-xl bg-navy-900 hover:bg-navy-700 text-white px-5 py-2 text-sm font-medium transition-colors">
+                    Reply
+                  </button>
+                </form>
+              )}
+            </div>
+          ))}
+        </div>
+      )
+    }
+  </div>
+</Layout>

@@ -77,11 +77,12 @@ if (business) {
               <div class="font-display text-2xl mt-2 capitalize">{business.status}</div>
             </div>
           </div>
-          <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div class="grid sm:grid-cols-2 lg:grid-cols-5 gap-4">
             {[
               ['/dashboard/bookings', 'Bookings', 'Accept or reject requests'],
               ['/dashboard/calendar', 'Calendar', 'Manage availability'],
               ['/dashboard/listings', 'Listings', 'Services, menus & pricing'],
+              ['/dashboard/reviews', 'Reviews', 'Read and reply'],
               ['/dashboard/settings', 'Settings', 'Profile, photos, location'],
             ].map(([href, title, sub]) => (
               <a

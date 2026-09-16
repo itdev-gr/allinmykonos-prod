@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro';
 import { createSupabaseAdmin } from '../../../lib/supabase';
 import { unitPriceFor, computeTotal, todayISO, maxBookingDateISO } from '../../../lib/booking';
+import { getStripe } from '../../../lib/stripe';
 
 export const POST: APIRoute = async ({ request, locals, redirect }) => {
   if (!locals.user) return redirect('/login');
@@ -106,6 +107,41 @@ export const POST: APIRoute = async ({ request, locals, redirect }) => {
   }
 
   if (service.booking_mode === 'instant') {
+    const stripe = getStripe();
+    if (stripe) {
+      // Real payment: Stripe Checkout. The webhook confirms the booking.
+      const origin = new URL(request.url).origin;
+      const session = await stripe.checkout.sessions.create({
+        mode: 'payment',
+        customer_email: locals.user.email ?? undefined,
+        line_items: [
+          {
+            quantity: 1,
+            price_data: {
+              currency: service.currency.toLowerCase(),
+              unit_amount: Math.round(total * 100),
+              product_data: {
+                name: service.title,
+                description: `${date} · ${guests} ${guests === 1 ? 'guest' : 'guests'}`,
+              },
+            },
+          },
+        ],
+        metadata: { booking_id: booking.id },
+        success_url: `${origin}/bookings/${booking.id}?paid=1`,
+        cancel_url: `${origin}/bookings/${booking.id}`,
+      });
+      await admin.from('payments').insert({
+        booking_id: booking.id,
+        amount: total,
+        commission_amount: commissionAmount,
+        currency: service.currency,
+        stripe_session_id: session.id,
+      });
+      return redirect(session.url!, 303);
+    }
+
+    // No Stripe keys yet: built-in demo checkout.
     await admin.from('payments').insert({
       booking_id: booking.id,
       amount: total,
